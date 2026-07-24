@@ -466,16 +466,16 @@ const ReframeGame = ({ onExit }) => {
   const checkLobbyDoorEncounter = (x, y) => {
     if (currentRoom !== 'lobby') return null;
     
-    // Room 101 (Catastrophizing) at X=140, Y=100
-    if (Math.hypot(x - 140, y - 100) < 20) return 'catastrophizing';
-    // Room 102 (Black & White) at X=140, Y=260
-    if (Math.hypot(x - 140, y - 260) < 20) return 'black_and_white';
-    // Room 103 (Mind Reading) at X=140, Y=460
-    if (Math.hypot(x - 140, y - 460) < 20) return 'mind_reading';
-    // Lounge (Overgeneralization) at X=660, Y=460
-    if (Math.hypot(x - 660, y - 460) < 20) return 'overgeneralization';
-    // Admin (Personalization) at X=660, Y=260
-    if (Math.hypot(x - 660, y - 260) < 20) return 'personalization';
+    // Room 101 (Catastrophizing) at X=140, Y=100 (sensor range Y: [80, 125])
+    if (x < 160 && y >= 80 && y <= 125) return 'catastrophizing';
+    // Room 102 (Black & White) at X=140, Y=260 (sensor range Y: [240, 285])
+    if (x < 160 && y >= 240 && y <= 285) return 'black_and_white';
+    // Room 103 (Mind Reading) at X=140, Y=460 (sensor range Y: [440, 485])
+    if (x < 160 && y >= 440 && y <= 485) return 'mind_reading';
+    // Lounge (Overgeneralization) at X=660, Y=460 (sensor range Y: [440, 485])
+    if (x > 640 && y >= 440 && y <= 485) return 'overgeneralization';
+    // Admin (Personalization) at X=660, Y=260 (sensor range Y: [240, 285])
+    if (x > 640 && y >= 240 && y <= 285) return 'personalization';
     
     return null;
   };
@@ -514,15 +514,15 @@ const ReframeGame = ({ onExit }) => {
       if (!checkCollision(nextX, player.current.y)) player.current.x = nextX;
       if (!checkCollision(player.current.x, nextY)) player.current.y = nextY;
 
-      // 2. Door Transition checks (using physical background coordinates, no overlay boxes)
+      // 2. Door Transition checks (using robust coordinate-based sensor zones)
       if (currentRoom === 'rooftop') {
-        // Stepped onto the rooftop Lobby door (centered exactly on doorway visual: X=210, Y=220)
-        const distToLobbyDoor = Math.hypot(player.current.x - 210, player.current.y - 220);
-        if (distToLobbyDoor < 24) {
+        // Stepped onto the rooftop Lobby door (centered exactly on doorway visual: X=215, Y=220)
+        // Trigger transition if Y is near the top edge (< 235) and X is within the doorway [185, 245]
+        if (player.current.y < 235 && player.current.x >= 185 && player.current.x <= 245) {
           setCurrentRoom('lobby');
-          // Spawn next to lobby entry door
+          // Spawn player next to the lobby entry door safely (below the trigger zone)
           player.current.x = 420;
-          player.current.y = 120;
+          player.current.y = 130;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -533,7 +533,7 @@ const ReframeGame = ({ onExit }) => {
         if (enteredRoomType) {
           setSelectedType(enteredRoomType);
           setCurrentRoom('distortion_room');
-          // Spawn player in the center of the private distortion room
+          // Spawn player in the center of the private distortion room safely
           player.current.x = 400;
           player.current.y = 350;
           cancelAnimationFrame(animationFrameId.current);
@@ -542,20 +542,20 @@ const ReframeGame = ({ onExit }) => {
         }
 
         // Stepped onto the Lobby exit back to Rooftop door (centered at X=420, Y=60)
-        const distToRooftopDoor = Math.hypot(player.current.x - 420, player.current.y - 60);
-        if (distToRooftopDoor < 20) {
+        // Trigger transition if Y is near the top edge (< 90) and X is within the door [380, 460]
+        if (player.current.y < 90 && player.current.x >= 380 && player.current.x <= 460) {
           setCurrentRoom('rooftop');
-          // Spawn just below the rooftop entry doorway
-          player.current.x = 210;
-          player.current.y = 250;
+          // Spawn safely on the rooftop deck outside the door trigger zone
+          player.current.x = 215;
+          player.current.y = 270;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
 
         // Stepped onto the Lobby exit mat to leave building (centered at X=420, Y=560)
-        const distToExitMat = Math.hypot(player.current.x - 420, player.current.y - 560);
-        if (distToExitMat < 20) {
+        // Trigger transition if Y is near the bottom edge (> 510) and X is within the door [380, 460]
+        if (player.current.y > 510 && player.current.x >= 380 && player.current.x <= 460) {
           cancelAnimationFrame(animationFrameId.current);
           stopRainAudio();
           handleBack();
@@ -563,27 +563,27 @@ const ReframeGame = ({ onExit }) => {
         }
       } else if (currentRoom === 'distortion_room') {
         // Stepped onto Lobby return door in private room (bottom center X=400, Y=540)
-        const distToLobbyReturn = Math.hypot(player.current.x - 400, player.current.y - 540);
-        if (distToLobbyReturn < 20) {
+        // Trigger transition if Y is near the bottom (> 500) and X is within the door [360, 440]
+        if (player.current.y > 500 && player.current.x >= 360 && player.current.x <= 440) {
           setCurrentRoom('lobby');
-          // Spawn player right in front of the door they just came out of
-          if (selectedType === 'catastrophizing') { player.current.x = 140; player.current.y = 150; }
-          else if (selectedType === 'black_and_white') { player.current.x = 140; player.current.y = 310; }
-          else if (selectedType === 'mind_reading') { player.current.x = 140; player.current.y = 500; }
-          else if (selectedType === 'overgeneralization') { player.current.x = 660; player.current.y = 500; }
-          else if (selectedType === 'personalization') { player.current.x = 660; player.current.y = 310; }
+          // Spawn player right in front of the door they just came out of (safely outside trigger boundaries)
+          if (selectedType === 'catastrophizing') { player.current.x = 190; player.current.y = 100; }
+          else if (selectedType === 'black_and_white') { player.current.x = 190; player.current.y = 260; }
+          else if (selectedType === 'mind_reading') { player.current.x = 190; player.current.y = 460; }
+          else if (selectedType === 'overgeneralization') { player.current.x = 610; player.current.y = 460; }
+          else if (selectedType === 'personalization') { player.current.x = 610; player.current.y = 260; }
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
 
         // Stepped onto Rooftop direct door in private room (right center X=740, Y=300)
-        const distToRooftopDirect = Math.hypot(player.current.x - 740, player.current.y - 300);
-        if (distToRooftopDirect < 20) {
+        // Trigger transition if X is near the right edge (> 710) and Y is within the door [260, 340]
+        if (player.current.x > 710 && player.current.y >= 260 && player.current.y <= 340) {
           setCurrentRoom('rooftop');
-          // Spawn near the rooftop entrance door
-          player.current.x = 210;
-          player.current.y = 250;
+          // Spawn safely on the rooftop deck outside the door trigger zone
+          player.current.x = 215;
+          player.current.y = 270;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -743,8 +743,8 @@ const ReframeGame = ({ onExit }) => {
         }
       }
 
-      // Draw player character sprite scaled up to 105px to match tall background characters exactly
-      const VISUAL_PLAYER_SIZE = 105;
+      // Draw player character sprite scaled up to 120px to match tall background characters exactly
+      const VISUAL_PLAYER_SIZE = 120;
       if (playerImageRef.current && playerImageRef.current.complete) {
         ctx.drawImage(
           playerImageRef.current,
