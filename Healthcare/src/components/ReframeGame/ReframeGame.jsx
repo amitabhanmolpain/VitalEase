@@ -10,7 +10,6 @@ import {
   RotateCcw, 
   AlertCircle, 
   Loader2, 
-  HelpCircle,
   TrendingDown
 } from 'lucide-react';
 import { reframeAPI } from '../../services/reframeApi';
@@ -33,12 +32,118 @@ const DEFAULT_OPENING_LINES = {
   personalization: "This is all your fault. If you had just done better, everyone would be happy."
 };
 
+// Map configuration
+const TILE_SIZE = 40;
+const COLS = 20;
+const ROWS = 15;
+
+const TILE_MAP = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,1,1,1,0,1,0,1,1,1,1,1,1,0,1,1,1,0,1],
+  [1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,0,1],
+  [1,0,1,0,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1],
+  [1,0,0,0,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1],
+  [1,1,1,0,1,0,1,1,0,1,1,1,0,1,1,1,1,1,0,1],
+  [1,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1,0,1],
+  [1,0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
+  [1,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1],
+  [1,0,1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+  [1,0,0,0,1,0,0,1,0,0,0,0,0,1,0,0,0,1,0,1],
+  [1,0,1,1,1,0,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+// NPCs placement list
+const NPC_LIST = [
+  { type: 'catastrophizing', col: 3, row: 5 },
+  { type: 'black_and_white', col: 14, row: 5 },
+  { type: 'mind_reading', col: 2, row: 11 },
+  { type: 'overgeneralization', col: 12, row: 11 },
+  { type: 'personalization', col: 15, row: 11 }
+];
+
 const preProcessDistortionName = (name) => {
   if (!name) return "";
   return name
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+};
+
+// Client-side flood fill transparency processor
+const floodFillAlpha = (imgData) => {
+  const data = imgData.data;
+  const width = imgData.width;
+  const height = imgData.height;
+  const visited = new Uint8Array(width * height);
+  const queue = [];
+
+  const getIndex = (x, y) => (y * width + x) * 4;
+
+  const isWhite = (x, y) => {
+    const idx = getIndex(x, y);
+    return data[idx] > 220 && data[idx+1] > 220 && data[idx+2] > 220 && data[idx+3] > 0;
+  };
+
+  const add = (x, y) => {
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+      const vIdx = y * width + x;
+      if (!visited[vIdx] && isWhite(x, y)) {
+        visited[vIdx] = 1;
+        queue.push([x, y]);
+      }
+    }
+  };
+
+  // Seed from edges
+  for (let x = 0; x < width; x++) {
+    add(x, 0);
+    add(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    add(0, y);
+    add(width - 1, y);
+  }
+
+  while (queue.length > 0) {
+    const [cx, cy] = queue.shift();
+    const idx = getIndex(cx, cy);
+    data[idx+3] = 0; // Transparent
+
+    add(cx + 1, cy);
+    add(cx - 1, cy);
+    add(cx, cy + 1);
+    add(cx, cy - 1);
+  }
+};
+
+const makeImageTransparent = (imgUrl) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        floodFillAlpha(imgData);
+        
+        ctx.putImageData(imgData, 0, 0);
+        resolve(canvas.toDataURL());
+      } catch (e) {
+        console.error("Transparency filter error:", e);
+        resolve(imgUrl);
+      }
+    };
+    img.onerror = () => resolve(imgUrl);
+    img.src = imgUrl;
+  });
 };
 
 const ReframeGame = ({ onExit }) => {
@@ -51,7 +156,30 @@ const ReframeGame = ({ onExit }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  
+  // Retro Sprite States
+  const [processedSprites, setProcessedSprites] = useState({});
+  const spriteImagesRef = useRef({});
 
+  // Background Image State
+  const bgImageRef = useRef(null);
+  const [bgLoaded, setBgLoaded] = useState(false);
+
+  // Rain weather particles reference
+  const rainParticles = useRef([]);
+
+  // Canvas movement references
+  const canvasRef = useRef(null);
+  const player = useRef({
+    x: 9 * TILE_SIZE + 20, // Spawn at col 9 center
+    y: 7 * TILE_SIZE + 20, // Spawn at row 7 center
+    radius: 12,
+    speed: 150
+  });
+
+  const keysPressed = useRef({});
+  const animationFrameId = useRef(null);
+  const lastTime = useRef(0);
   const chatEndRef = useRef(null);
 
   // Auto-scroll chat to bottom
@@ -86,6 +214,289 @@ const ReframeGame = ({ onExit }) => {
     fetchTypes();
   }, []);
 
+  // Pre-process Cloudinary sprites on component mount
+  useEffect(() => {
+    const processAll = async () => {
+      const processed = {};
+      for (const [key, url] of Object.entries(CHARACTER_SPRITES)) {
+        try {
+          processed[key] = await makeImageTransparent(url);
+        } catch (e) {
+          processed[key] = url;
+        }
+      }
+      setProcessedSprites(processed);
+
+      // Pre-load Image objects for canvas drawing
+      for (const [key, src] of Object.entries(processed)) {
+        const img = new Image();
+        img.src = src;
+        spriteImagesRef.current[key] = img;
+      }
+    };
+    processAll();
+  }, []);
+
+  // Pre-load background image from Cloudinary on mount
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784918536/reframe_game/reframe_game/background_night.jpg";
+    img.onload = () => {
+      bgImageRef.current = img;
+      setBgLoaded(true);
+    };
+  }, []);
+
+  // Initialize rain particles
+  useEffect(() => {
+    if (rainParticles.current.length === 0) {
+      const particles = [];
+      for (let i = 0; i < 60; i++) {
+        particles.push({
+          x: Math.random() * 800,
+          y: Math.random() * 600,
+          len: 10 + Math.random() * 15,
+          speed: 300 + Math.random() * 200
+        });
+      }
+      rainParticles.current = particles;
+    }
+  }, []);
+
+  // Keyboard controls for canvas
+  useEffect(() => {
+    if (stage !== 'select') return;
+
+    const handleKeyDown = (e) => {
+      const key = e.key.toLowerCase();
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+        e.preventDefault();
+      }
+      keysPressed.current[key] = true;
+    };
+
+    const handleKeyUp = (e) => {
+      const key = e.key.toLowerCase();
+      keysPressed.current[key] = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [stage]);
+
+  // Canvas collision checker
+  const checkCollision = (newX, newY) => {
+    const r = player.current.radius;
+    const corners = [
+      { x: newX - r, y: newY - r },
+      { x: newX + r, y: newY - r },
+      { x: newX - r, y: newY + r },
+      { x: newX + r, y: newY + r }
+    ];
+
+    for (let corner of corners) {
+      const col = Math.floor(corner.x / TILE_SIZE);
+      const row = Math.floor(corner.y / TILE_SIZE);
+
+      if (col < 0 || col >= COLS || row < 0 || row >= ROWS) {
+        return true;
+      }
+
+      if (TILE_MAP[row][col] === 1) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Check if player collided with any NPC
+  const checkNPCCollision = (x, y) => {
+    for (let npc of NPC_LIST) {
+      const npcX = npc.col * TILE_SIZE + TILE_SIZE / 2;
+      const npcY = npc.row * TILE_SIZE + TILE_SIZE / 2;
+      const dist = Math.hypot(x - npcX, y - npcY);
+      
+      // Trigger encounter if close
+      if (dist < 24) {
+        return npc.type;
+      }
+    }
+    return null;
+  };
+
+  // Top-down World Render Game Loop
+  useEffect(() => {
+    if (stage !== 'select' || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    lastTime.current = 0;
+
+    const gameLoop = (timestamp) => {
+      if (!lastTime.current) lastTime.current = timestamp;
+      const dt = Math.min((timestamp - lastTime.current) / 1000, 0.1);
+      lastTime.current = timestamp;
+
+      // 1. Player movement
+      let dx = 0;
+      let dy = 0;
+
+      if (keysPressed.current['w'] || keysPressed.current['arrowup']) dy -= 1;
+      if (keysPressed.current['s'] || keysPressed.current['arrowdown']) dy += 1;
+      if (keysPressed.current['a'] || keysPressed.current['arrowleft']) dx -= 1;
+      if (keysPressed.current['d'] || keysPressed.current['arrowright']) dx += 1;
+
+      if (dx !== 0 && dy !== 0) {
+        const len = Math.sqrt(dx*dx + dy*dy);
+        dx /= len;
+        dy /= len;
+      }
+
+      const move = player.current.speed * dt;
+      let nextX = player.current.x + dx * move;
+      let nextY = player.current.y + dy * move;
+
+      if (!checkCollision(nextX, player.current.y)) player.current.x = nextX;
+      if (!checkCollision(player.current.x, nextY)) player.current.y = nextY;
+
+      // Check NPC interactions
+      const hitNPCType = checkNPCCollision(player.current.x, player.current.y);
+      if (hitNPCType) {
+        cancelAnimationFrame(animationFrameId.current);
+        keysPressed.current = {};
+        handleStartGame(hitNPCType);
+        return;
+      }
+
+      // 2. Draw Background and Floor Tiles
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (bgImageRef.current && bgLoaded) {
+        // Draw Gemini-generated retro night rooftop background
+        ctx.drawImage(bgImageRef.current, 0, 0, canvas.width, canvas.height);
+      } else {
+        // Fallback default dark tiles if image loading
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            const tile = TILE_MAP[r][c];
+            if (tile === 1) {
+              ctx.fillStyle = '#0f172a'; // Slate-900 wall fallback
+            } else {
+              ctx.fillStyle = '#1e293b'; // Slate-800 floor fallback
+            }
+            ctx.fillRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+          }
+        }
+      }
+
+      // 3. Draw Grid/Wall Overlay lines (translucent for RPG alignment)
+      ctx.strokeStyle = 'rgba(71, 85, 105, 0.25)';
+      ctx.lineWidth = 0.5;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
+
+      // 4. Draw Translucent Water Puddles (retro texture reflection overlay)
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.12)';
+      const drawPuddle = (px, py, rx, ry) => {
+        ctx.beginPath();
+        ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI*2);
+        ctx.fill();
+      };
+      drawPuddle(180, 240, 30, 10);
+      drawPuddle(580, 320, 45, 15);
+      drawPuddle(380, 460, 35, 12);
+
+      // 5. Draw spotlight cast cone (soft yellow light effect overlay)
+      ctx.fillStyle = 'rgba(253, 224, 71, 0.08)';
+      ctx.beginPath();
+      ctx.moveTo(100, 460); // Spotlight base
+      ctx.lineTo(800, 150); // Light upper limit
+      ctx.lineTo(800, 600); // Light lower limit
+      ctx.closePath();
+      ctx.fill();
+
+      // 6. Draw NPCs
+      NPC_LIST.forEach((npc) => {
+        const img = spriteImagesRef.current[npc.type];
+        if (img && img.complete) {
+          ctx.drawImage(
+            img, 
+            npc.col * TILE_SIZE + 4, 
+            npc.row * TILE_SIZE + 4, 
+            TILE_SIZE - 8, 
+            TILE_SIZE - 8
+          );
+        } else {
+          ctx.fillStyle = '#a855f7';
+          ctx.beginPath();
+          ctx.arc(npc.col * TILE_SIZE + 20, npc.row * TILE_SIZE + 20, 12, 0, Math.PI*2);
+          ctx.fill();
+        }
+      });
+
+      // 7. Draw Player
+      ctx.fillStyle = '#14b8a6'; // Teal player character
+      ctx.fillRect(
+        player.current.x - player.current.radius,
+        player.current.y - player.current.radius,
+        player.current.radius * 2,
+        player.current.radius * 2
+      );
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(
+        player.current.x - player.current.radius,
+        player.current.y - player.current.radius,
+        player.current.radius * 2,
+        player.current.radius * 2
+      );
+
+      // 8. Draw Dynamic Weather (drifting monsoon rain lines)
+      if (!prefersReducedMotion && rainParticles.current.length > 0) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.lineWidth = 1;
+        rainParticles.current.forEach((p) => {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x - 2, p.y + p.len);
+          ctx.stroke();
+
+          // Move diagonal speed downwards and left
+          p.y += p.speed * dt;
+          p.x -= (p.speed * 0.18) * dt;
+
+          if (p.y > 600) {
+            p.y = -20;
+            p.x = Math.random() * 800;
+          }
+        });
+      }
+
+      // 9. Draw dark radial ambient vignette (creates cozy/night contrast)
+      const vignette = ctx.createRadialGradient(400, 300, 250, 400, 300, 520);
+      vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      vignette.addColorStop(1, 'rgba(0, 0, 0, 0.55)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      animationFrameId.current = requestAnimationFrame(gameLoop);
+    };
+
+    animationFrameId.current = requestAnimationFrame(gameLoop);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId.current);
+    };
+  }, [stage, bgLoaded, prefersReducedMotion]);
+
   const handleStartGame = (typeKey) => {
     setSelectedType(typeKey);
     setIntensity(100);
@@ -106,11 +517,9 @@ const ReframeGame = ({ onExit }) => {
     setUserInput('');
     setError(null);
 
-    // Append player message to chat log
     setChatLog(prev => [...prev, { sender: 'player', text: playerText }]);
     setIsLoading(true);
 
-    // Get the last monster statement from chatLog
     const lastMonsterMessage = [...chatLog]
       .reverse()
       .find(msg => msg.sender === 'monster');
@@ -127,11 +536,9 @@ const ReframeGame = ({ onExit }) => {
       const feedbackText = response.feedback;
       const nextMonsterResponse = response.monster_response;
 
-      // Compute new intensity, floor at 0
       const newIntensity = Math.max(0, intensity - damageValue);
       setIntensity(newIntensity);
 
-      // Append evaluation feedback
       setChatLog(prev => [
         ...prev,
         { 
@@ -142,17 +549,14 @@ const ReframeGame = ({ onExit }) => {
       ]);
 
       if (newIntensity <= 15) {
-        // Transition to settled phase
         setTimeout(() => {
           setStage('settled');
         }, prefersReducedMotion ? 0 : 800);
       } else {
-        // Let monster respond with next line
         setChatLog(prev => [...prev, { sender: 'monster', text: nextMonsterResponse }]);
       }
     } catch (err) {
       console.error("Evaluation error:", err);
-      // Restore user input so they can retry without re-typing everything
       setUserInput(playerText);
       setError("The connection to the judging engine failed. Please try sending your reframe again.");
     } finally {
@@ -161,6 +565,9 @@ const ReframeGame = ({ onExit }) => {
   };
 
   const handleReset = () => {
+    player.current.x = 9 * TILE_SIZE + 20;
+    player.current.y = 7 * TILE_SIZE + 20;
+    
     setStage('select');
     setSelectedType('');
     setIntensity(100);
@@ -177,12 +584,12 @@ const ReframeGame = ({ onExit }) => {
     }
   };
 
-  // Selection Phase Render
+  // Selection Phase (Top-down Interactive Map)
   if (stage === 'select') {
     return (
       <div className="min-h-screen bg-slate-950 text-white font-poppins flex flex-col p-6 overflow-x-hidden relative">
         {/* Nav Header */}
-        <div className="flex items-center justify-between mb-8 max-w-7xl mx-auto w-full z-10">
+        <div className="flex items-center justify-between mb-6 max-w-7xl mx-auto w-full z-10">
           <button 
             onClick={handleBack}
             className="flex items-center gap-2 px-4 py-2 bg-slate-900 border-2 border-slate-700 hover:border-slate-500 rounded-none text-white font-pixel-body text-lg transition"
@@ -191,78 +598,46 @@ const ReframeGame = ({ onExit }) => {
             BACK
           </button>
           <div className="flex items-center gap-2">
-            <span className="font-pixel-title text-base text-teal-400 tracking-wider">THOUGHT EXPLORER</span>
+            <Brain className="text-purple-400 w-6 h-6" />
+            <span className="font-pixel-title text-sm text-teal-400 tracking-wider">THOUGHT REFRAMING ARENA</span>
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col justify-center items-center max-w-5xl mx-auto w-full z-10 mb-12">
-          <motion.div 
-            className="text-center mb-12"
-            initial={prefersReducedMotion ? {} : { opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <h1 className="text-2xl md:text-3xl font-pixel-title leading-relaxed mb-4 text-white">
-              THOUGHT REFRAMING ARENA
+        <div className="flex-1 flex flex-col justify-center items-center max-w-5xl mx-auto w-full z-10 mb-6">
+          <div className="text-center mb-6">
+            <h1 className="text-xl md:text-2xl font-pixel-title leading-relaxed mb-2 text-white">
+              WALK TO CONFRONT COGNITIVE DISTORTIONS
             </h1>
-            <p className="text-gray-300 text-lg max-w-2xl mx-auto leading-relaxed">
-              Explore your mind's automated cognitive distortions. Choose a specific distortion pattern to confront, and practice reframing it with rational CBT principles.
+            <p className="text-gray-300 text-sm max-w-xl mx-auto">
+              Use WASD or ARROW KEYS to move your teal character. Walk into the custom pixel-art sprites scattered around the night rooftop map to challenge each thought pattern.
             </p>
-          </motion.div>
+          </div>
 
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <Loader2 className="w-12 h-12 text-teal-400 animate-spin" />
-              <p className="text-gray-400 font-pixel-body text-lg">LOADING COGNITIVE DISTORTIONS...</p>
-            </div>
-          ) : error && Object.keys(distortionTypes).length === 0 ? (
-            <div className="bg-slate-900 border-4 border-red-700 rounded-none p-8 text-center max-w-md">
-              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <h3 className="text-xl font-pixel-title mb-4">CONNECTION ERROR</h3>
-              <p className="text-red-200/80 mb-6">{error}</p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="px-6 py-3 bg-red-800 hover:bg-red-700 border-2 border-red-600 text-white font-pixel-body text-lg rounded-none transition"
-              >
-                RETRY CONNECTION
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-              {Object.entries(distortionTypes).map(([key, desc], idx) => (
-                <motion.div
-                  key={key}
-                  onClick={() => handleStartGame(key)}
-                  className="bg-slate-900 border-4 border-slate-700 hover:border-teal-400 p-6 rounded-none cursor-pointer flex flex-col justify-between group transition-all duration-200 hover:bg-slate-900 relative"
-                  initial={prefersReducedMotion ? {} : { opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: idx * 0.05 }}
-                  whileHover={prefersReducedMotion ? {} : { y: -4 }}
-                >
-                  <div>
-                    {/* Character Sprite Container */}
-                    <div className="w-full aspect-square bg-slate-950 border-4 border-slate-700 rounded-none flex items-center justify-center mb-6 overflow-hidden">
-                      <img 
-                        src={CHARACTER_SPRITES[key]} 
-                        alt={key} 
-                        className="w-full h-full object-cover" 
-                        style={{ imageRendering: 'pixelated' }}
-                      />
-                    </div>
-                    <h3 className="font-pixel-body text-2xl font-bold text-teal-400 mb-3 group-hover:text-teal-300 transition-colors">
-                      {preProcessDistortionName(key)}
-                    </h3>
-                    <p className="text-slate-300 text-sm leading-relaxed mb-6">
-                      {desc}
-                    </p>
-                  </div>
-                  <span className="font-pixel-body text-base font-bold uppercase tracking-wider text-purple-400 group-hover:text-teal-400 flex items-center gap-1">
-                    CONFRONT PATTERN &rarr;
-                  </span>
-                </motion.div>
-              ))}
-            </div>
-          )}
+          {/* Core Interactive Canvas Grid */}
+          <div className="bg-slate-900 border-8 border-slate-700 rounded-none p-2 shadow-none overflow-auto max-w-full">
+            <canvas 
+              ref={canvasRef} 
+              width={COLS * TILE_SIZE} 
+              height={ROWS * TILE_SIZE}
+              className="block bg-slate-950 max-w-full"
+              style={{ imageRendering: 'pixelated' }}
+            />
+          </div>
+
+          {/* Legend panel */}
+          <div className="w-full max-w-3xl bg-slate-900 border-4 border-slate-700 rounded-none p-4 mt-6 grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs font-pixel-body text-center">
+            {NPC_LIST.map((npc) => (
+              <div key={npc.type} className="flex flex-col items-center gap-1">
+                <img 
+                  src={processedSprites[npc.type] || CHARACTER_SPRITES[npc.type]} 
+                  alt={npc.type} 
+                  className="w-10 h-10 object-contain"
+                  style={{ imageRendering: 'pixelated' }}
+                />
+                <span className="text-teal-400">{preProcessDistortionName(npc.type)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -302,7 +677,7 @@ const ReframeGame = ({ onExit }) => {
               {/* Character Portrait */}
               <div className="w-full aspect-square bg-slate-950 border-4 border-slate-700 rounded-none overflow-hidden my-4">
                 <img 
-                  src={CHARACTER_SPRITES[selectedType]} 
+                  src={processedSprites[selectedType] || CHARACTER_SPRITES[selectedType]} 
                   alt={selectedType}
                   className="w-full h-full object-cover"
                   style={{ imageRendering: 'pixelated' }}
