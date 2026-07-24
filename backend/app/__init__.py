@@ -125,6 +125,9 @@ def create_app():
     register_player_stats_routes(app)
     from app.controllers.game_controller import game_bp
     app.register_blueprint(game_bp)
+
+    from app.reframe_game import reframe_game_bp
+    app.register_blueprint(reframe_game_bp)
     
     # Debug: Print all registered routes
     print('REGISTERED ROUTES:')
