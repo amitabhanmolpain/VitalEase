@@ -21,14 +21,16 @@ class ReframeEvaluation(BaseModel):
 def evaluate_reframe(distortion_type: str, monster_statement: str, player_reframe: str) -> dict:
     """
     Calls the Gemini API using google-genai to evaluate the player's reframe of a cognitive distortion.
+    If the API call fails or the API key is invalid/missing, fails gracefully with a fallback response.
     """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY is not configured in the environment.")
+        return get_fallback_evaluation(player_reframe)
 
-    client = genai.Client(api_key=api_key)
+    try:
+        client = genai.Client(api_key=api_key)
 
-    prompt = f"""
+        prompt = f"""
 You are an expert cognitive behavioral therapist (CBT) judging a player's response in a thought reframing game.
 The player is fighting a "Thought Monster" that has spoken a cognitive distortion.
 The player must reply with a reframe that directly addresses and dismantles that specific cognitive distortion.
@@ -48,14 +50,30 @@ Your task:
 Ensure your response conforms strictly to the requested schema.
 """
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=ReframeEvaluation,
-            temperature=0.0,
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=ReframeEvaluation,
+                temperature=0.0,
+            )
         )
-    )
 
-    return json.loads(response.text)
+        return json.loads(response.text)
+
+    except Exception as e:
+        print(f"[Gemini API Exception] Falling back to mock evaluation. Error: {e}")
+        return get_fallback_evaluation(player_reframe)
+
+def get_fallback_evaluation(player_reframe: str) -> dict:
+    """Generates a fallback evaluation response when Gemini API is offline/invalid."""
+    words = len(player_reframe.split())
+    score = min(95, max(40, words * 6))
+    
+    return {
+        "addresses_distortion": True,
+        "quality_score": score,
+        "feedback": "CBT Fallback: You are practicing valuable reframing skills by identifying realistic alternatives to negative thoughts.",
+        "monster_response": "Your logical reasoning is making my grip fade..."
+    }

@@ -1,0 +1,1222 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Brain, 
+  Send, 
+  Award, 
+  Heart, 
+  CheckCircle, 
+  ArrowLeft, 
+  RotateCcw, 
+  AlertCircle, 
+  Loader2, 
+  TrendingDown
+} from 'lucide-react';
+import { reframeAPI } from '../../services/reframeApi';
+
+// Pre-generated pixel-art sprites hosted on Cloudinary
+const CHARACTER_SPRITES = {
+  catastrophizing: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784916957/reframe_game/reframe_game/sprite_catastrophizing.jpg",
+  black_and_white: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784917018/reframe_game/reframe_game/sprite_black_and_white.jpg",
+  mind_reading: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784917018/reframe_game/reframe_game/sprite_mind_reading.jpg",
+  overgeneralization: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784917019/reframe_game/reframe_game/sprite_overgeneralization.jpg",
+  personalization: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784917020/reframe_game/reframe_game/sprite_personalization.jpg"
+};
+
+// Indian Themed private room backgrounds
+const ROOM_BACKGROUNDS = {
+  catastrophizing: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784920979/reframe_game/reframe_game/room_indian_catastrophizing.jpg",
+  black_and_white: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784920980/reframe_game/reframe_game/room_indian_black_white.jpg",
+  mind_reading: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784920981/reframe_game/reframe_game/room_indian_mind_reading.jpg",
+  overgeneralization: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784920982/reframe_game/reframe_game/room_indian_overgeneralization.jpg",
+  personalization: "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784920983/reframe_game/reframe_game/room_indian_personalization.jpg"
+};
+
+// Hardcoded opening statements per distortion type
+const DEFAULT_OPENING_LINES = {
+  catastrophizing: "One mistake here, and everything falls apart, you know that right?",
+  black_and_white: "If you aren't completely perfect at this, you're a total failure.",
+  mind_reading: "They are all looking at you and thinking how incompetent you are.",
+  overgeneralization: "You always mess things up; this time won't be any different.",
+  personalization: "This is all your fault. If you had just done better, everyone would be happy."
+};
+
+// Map configuration
+const TILE_SIZE = 40;
+const COLS = 20;
+const ROWS = 15;
+
+const preProcessDistortionName = (name) => {
+  if (!name) return "";
+  return name
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+// Client-side flood fill transparency processor
+const floodFillAlpha = (imgData) => {
+  const data = imgData.data;
+  const width = imgData.width;
+  const height = imgData.height;
+  const visited = new Uint8Array(width * height);
+  const queue = [];
+
+  const getIndex = (x, y) => (y * width + x) * 4;
+
+  const isWhite = (x, y) => {
+    const idx = getIndex(x, y);
+    return data[idx] > 220 && data[idx+1] > 220 && data[idx+2] > 220 && data[idx+3] > 0;
+  };
+
+  const add = (x, y) => {
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+      const vIdx = y * width + x;
+      if (!visited[vIdx] && isWhite(x, y)) {
+        visited[vIdx] = 1;
+        queue.push([x, y]);
+      }
+    }
+  };
+
+  // Seed from edges
+  for (let x = 0; x < width; x++) {
+    add(x, 0);
+    add(x, height - 1);
+  }
+  for (let y = 0; y < height; y++) {
+    add(0, y);
+    add(width - 1, y);
+  }
+
+  while (queue.length > 0) {
+    const [cx, cy] = queue.shift();
+    const idx = getIndex(cx, cy);
+    data[idx+3] = 0; // Transparent
+
+    add(cx + 1, cy);
+    add(cx - 1, cy);
+    add(cx, cy + 1);
+    add(cx, cy - 1);
+  }
+};
+
+const makeImageTransparent = (imgUrl) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        floodFillAlpha(imgData);
+        
+        ctx.putImageData(imgData, 0, 0);
+        resolve(canvas.toDataURL());
+      } catch (e) {
+        console.error("Transparency filter error:", e);
+        resolve(imgUrl);
+      }
+    };
+    img.onerror = () => resolve(imgUrl);
+    img.src = imgUrl;
+  });
+};
+
+const ReframeGame = ({ onExit }) => {
+  const [stage, setStage] = useState('select'); // 'select', 'chat', 'settled'
+  const [currentRoom, setCurrentRoom] = useState('rooftop'); // 'rooftop', 'lobby', 'distortion_room'
+  const [distortionTypes, setDistortionTypes] = useState({});
+  const [selectedType, setSelectedType] = useState('');
+  const [intensity, setIntensity] = useState(100);
+  const [chatLog, setChatLog] = useState([]);
+  const [userInput, setUserInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  
+  // Legend HUD box control
+  const [showLegend, setShowLegend] = useState(true);
+
+  // Retro Sprite States
+  const [processedSprites, setProcessedSprites] = useState({});
+  const spriteImagesRef = useRef({});
+
+  // Depressed Player Sprite State
+  const [processedPlayerSprite, setProcessedPlayerSprite] = useState(null);
+  const playerImageRef = useRef(null);
+
+  // Background Image States
+  const bgImageRef = useRef(null);
+  const [bgLoaded, setBgLoaded] = useState(false);
+
+  const lobbyBgRef = useRef(null);
+  const [lobbyBgLoaded, setLobbyBgLoaded] = useState(false);
+
+  // Themed private rooms image refs
+  const roomBgImagesRef = useRef({});
+  const [roomBgsLoaded, setRoomBgsLoaded] = useState(false);
+
+  // Rain weather particles reference
+  const rainParticles = useRef([]);
+
+  // Web Audio Rain Loop Refs
+  const rainSourceRef = useRef(null);
+  const audioCtxRef = useRef(null);
+
+  // Canvas viewport resize states
+  const [canvasDimensions, setCanvasDimensions] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
+
+  // Canvas movement references
+  const canvasRef = useRef(null);
+  const player = useRef({
+    x: 400, // Spawn centered on rooftop deck
+    y: 350,
+    radius: 12,
+    speed: 150
+  });
+
+  const keysPressed = useRef({});
+  const animationFrameId = useRef(null);
+  const lastTime = useRef(0);
+  const chatEndRef = useRef(null);
+
+  // Dynamic window resize handler for full screen selection
+  useEffect(() => {
+    if (stage !== 'select') return;
+    const handleResize = () => {
+      setCanvasDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [stage]);
+
+  // Audio rain looping control (Only playing when outside on the rooftop)
+  const startRainAudio = () => {
+    if (currentRoom !== 'rooftop') return; // Pause/mute indoors
+    try {
+      if (rainSourceRef.current) return; // Already running
+
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContext();
+      audioCtxRef.current = audioContext;
+
+      // Create white noise buffer
+      const bufferSize = 2 * audioContext.sampleRate;
+      const noiseBuffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = audioContext.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+
+      // Filter to shape static white noise into gentle soft rain/wind sound
+      const filter = audioContext.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 850;
+
+      const gain = audioContext.createGain();
+      gain.gain.value = 0.08; // Translucent soft rain background loop
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioContext.destination);
+
+      whiteNoise.start();
+      rainSourceRef.current = whiteNoise;
+    } catch (e) {
+      console.warn("Audio context failed to start:", e);
+    }
+  };
+
+  const stopRainAudio = () => {
+    if (rainSourceRef.current) {
+      try {
+        rainSourceRef.current.stop();
+      } catch (e) {}
+      rainSourceRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      try {
+        audioCtxRef.current.close();
+      } catch (e) {}
+      audioCtxRef.current = null;
+    }
+  };
+
+  // Manage rain audio loops dynamically during room transitions
+  useEffect(() => {
+    if (stage === 'select' && currentRoom === 'rooftop') {
+      startRainAudio();
+    } else {
+      stopRainAudio();
+    }
+  }, [currentRoom, stage]);
+
+  // Bind audio to user input interactions to support Chrome/Safari autoplay rules
+  useEffect(() => {
+    if (stage !== 'select' || currentRoom !== 'rooftop') {
+      stopRainAudio();
+      return;
+    }
+
+    const triggerPlay = () => {
+      startRainAudio();
+    };
+
+    window.addEventListener('click', triggerPlay);
+    window.addEventListener('keydown', triggerPlay);
+
+    return () => {
+      window.removeEventListener('click', triggerPlay);
+      window.removeEventListener('keydown', triggerPlay);
+      stopRainAudio();
+    };
+  }, [stage, currentRoom]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  }, [chatLog, prefersReducedMotion]);
+
+  // Detect prefers-reduced-motion
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    const listener = (e) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', listener);
+    return () => mediaQuery.removeEventListener('change', listener);
+  }, []);
+
+  // Fetch distortion types on load
+  useEffect(() => {
+    const fetchTypes = async () => {
+      try {
+        setIsLoading(true);
+        const data = await reframeAPI.getDistortionTypes();
+        setDistortionTypes(data);
+        setError(null);
+      } catch (err) {
+        console.error("Failed to load distortion types:", err);
+        setError("Could not load distortion options. Please check your backend connection.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchTypes();
+  }, []);
+
+  // Pre-process Cloudinary sprites on component mount
+  useEffect(() => {
+    const processAll = async () => {
+      const processed = {};
+      for (const [key, url] of Object.entries(CHARACTER_SPRITES)) {
+        try {
+          processed[key] = await makeImageTransparent(url);
+        } catch (e) {
+          processed[key] = url;
+        }
+      }
+      setProcessedSprites(processed);
+
+      // Pre-load Image objects for canvas drawing
+      for (const [key, src] of Object.entries(processed)) {
+        const img = new Image();
+        img.src = src;
+        spriteImagesRef.current[key] = img;
+      }
+    };
+    processAll();
+  }, []);
+
+  // Pre-load background images from Cloudinary on mount
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784918536/reframe_game/reframe_game/background_night.jpg";
+    img.onload = () => {
+      bgImageRef.current = img;
+      setBgLoaded(true);
+    };
+
+    // Load Indian-style palace hotel lobby background
+    const lobbyImg = new Image();
+    lobbyImg.crossOrigin = "anonymous";
+    lobbyImg.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784920978/reframe_game/reframe_game/background_indian_lobby.jpg";
+    lobbyImg.onload = () => {
+      lobbyBgRef.current = lobbyImg;
+      setLobbyBgLoaded(true);
+    };
+
+    // Load themed private rooms
+    let loadedCount = 0;
+    const total = Object.keys(ROOM_BACKGROUNDS).length;
+    for (const [key, src] of Object.entries(ROOM_BACKGROUNDS)) {
+      const roomImg = new Image();
+      roomImg.crossOrigin = "anonymous";
+      roomImg.src = src;
+      roomImg.onload = () => {
+        roomBgImagesRef.current[key] = roomImg;
+        loadedCount++;
+        if (loadedCount === total) {
+          setRoomBgsLoaded(true);
+        }
+      };
+    }
+  }, []);
+
+  // Pre-process player (depressed bearded man) sprite
+  useEffect(() => {
+    const playerUrl = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784919026/reframe_game/reframe_game/sprite_depressed_man.jpg";
+    makeImageTransparent(playerUrl)
+      .then((src) => {
+        setProcessedPlayerSprite(src);
+        const img = new Image();
+        img.src = src;
+        playerImageRef.current = img;
+      })
+      .catch(() => {
+        setProcessedPlayerSprite(playerUrl);
+        const img = new Image();
+        img.src = playerUrl;
+        playerImageRef.current = img;
+      });
+  }, []);
+
+  // Initialize rain particles inside 800x600 coordinate bounds
+  useEffect(() => {
+    if (rainParticles.current.length === 0) {
+      const particles = [];
+      for (let i = 0; i < 60; i++) {
+        particles.push({
+          x: Math.random() * 800,
+          y: Math.random() * 600,
+          len: 10 + Math.random() * 15,
+          speed: 300 + Math.random() * 200
+        });
+      }
+      rainParticles.current = particles;
+    }
+  }, []);
+
+  // Keyboard controls for canvas
+  useEffect(() => {
+    if (stage !== 'select') return;
+
+    const handleKeyDown = (e) => {
+      const key = e.key.toLowerCase();
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
+        e.preventDefault();
+      }
+      keysPressed.current[key] = true;
+    };
+
+    const handleKeyUp = (e) => {
+      const key = e.key.toLowerCase();
+      keysPressed.current[key] = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [stage]);
+
+  // Canvas collision boundary checker (Prevents player from walking in the sky/on building walls)
+  const checkCollision = (newX, newY) => {
+    const r = player.current.radius;
+    
+    if (currentRoom === 'rooftop') {
+      // Keeps the player strictly on the rooftop brick deck floor (preventing floating off-screen in sky)
+      if (newX - r < 120 || newX + r > 680 || newY - r < 200 || newY + r > 540) {
+        return true;
+      }
+    } else if (currentRoom === 'lobby') {
+      // Keeps the player inside the lobby walls
+      if (newX - r < 40 || newX + r > 760 || newY - r < 60 || newY + r > 540) {
+        return true;
+      }
+    } else if (currentRoom === 'distortion_room') {
+      // Keeps the player inside the private distortion room walls
+      if (newX - r < 60 || newX + r > 740 || newY - r < 120 || newY + r > 530) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // Check if player entered a lobby room doorway (Room 101/102/103/Lounge/Admin)
+  const checkLobbyDoorEncounter = (x, y) => {
+    if (currentRoom !== 'lobby') return null;
+    
+    // Room 101 (Catastrophizing) at X=140, Y=100 (sensor range Y: [80, 125])
+    if (x < 160 && y >= 80 && y <= 125) return 'catastrophizing';
+    // Room 102 (Black & White) at X=140, Y=260 (sensor range Y: [240, 285])
+    if (x < 160 && y >= 240 && y <= 285) return 'black_and_white';
+    // Room 103 (Mind Reading) at X=140, Y=460 (sensor range Y: [440, 485])
+    if (x < 160 && y >= 440 && y <= 485) return 'mind_reading';
+    // Lounge (Overgeneralization) at X=660, Y=460 (sensor range Y: [440, 485])
+    if (x > 640 && y >= 440 && y <= 485) return 'overgeneralization';
+    // Admin (Personalization) at X=660, Y=260 (sensor range Y: [240, 285])
+    if (x > 640 && y >= 240 && y <= 285) return 'personalization';
+    
+    return null;
+  };
+
+  // Top-down World Render Game Loop
+  useEffect(() => {
+    if (stage !== 'select' || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    lastTime.current = 0;
+
+    const gameLoop = (timestamp) => {
+      if (!lastTime.current) lastTime.current = timestamp;
+      const dt = Math.min((timestamp - lastTime.current) / 1000, 0.1);
+      lastTime.current = timestamp;
+
+      // 1. Player movement
+      let dx = 0;
+      let dy = 0;
+
+      if (keysPressed.current['w'] || keysPressed.current['arrowup']) dy -= 1;
+      if (keysPressed.current['s'] || keysPressed.current['arrowdown']) dy += 1;
+      if (keysPressed.current['a'] || keysPressed.current['arrowleft']) dx -= 1;
+      if (keysPressed.current['d'] || keysPressed.current['arrowright']) dx += 1;
+
+      if (dx !== 0 && dy !== 0) {
+        const len = Math.sqrt(dx*dx + dy*dy);
+        dx /= len;
+        dy /= len;
+      }
+
+      const move = player.current.speed * dt;
+      let nextX = player.current.x + dx * move;
+      let nextY = player.current.y + dy * move;
+
+      if (!checkCollision(nextX, player.current.y)) player.current.x = nextX;
+      if (!checkCollision(player.current.x, nextY)) player.current.y = nextY;
+
+      // 2. Door Transition checks (using robust coordinate-based sensor zones)
+      if (currentRoom === 'rooftop') {
+        // Stepped onto the rooftop Lobby door (centered exactly on doorway visual: X=215, Y=220)
+        // Trigger transition if Y is near the top edge (< 235) and X is within the doorway [185, 245]
+        if (player.current.y < 235 && player.current.x >= 185 && player.current.x <= 245) {
+          setCurrentRoom('lobby');
+          // Spawn player next to the lobby entry door safely (below the trigger zone)
+          player.current.x = 420;
+          player.current.y = 130;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+      } else if (currentRoom === 'lobby') {
+        // Check if player entered one of the lobby doors (leads to a private themed room)
+        const enteredRoomType = checkLobbyDoorEncounter(player.current.x, player.current.y);
+        if (enteredRoomType) {
+          setSelectedType(enteredRoomType);
+          setCurrentRoom('distortion_room');
+          // Spawn player in the center of the private distortion room safely
+          player.current.x = 400;
+          player.current.y = 350;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Stepped onto the Lobby exit back to Rooftop door (centered at X=420, Y=60)
+        // Trigger transition if Y is near the top edge (< 90) and X is within the door [380, 460]
+        if (player.current.y < 90 && player.current.x >= 380 && player.current.x <= 460) {
+          setCurrentRoom('rooftop');
+          // Spawn safely on the rooftop deck outside the door trigger zone
+          player.current.x = 215;
+          player.current.y = 270;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Stepped onto the Lobby exit mat to leave building (centered at X=420, Y=560)
+        // Trigger transition if Y is near the bottom edge (> 510) and X is within the door [380, 460]
+        if (player.current.y > 510 && player.current.x >= 380 && player.current.x <= 460) {
+          cancelAnimationFrame(animationFrameId.current);
+          stopRainAudio();
+          handleBack();
+          return;
+        }
+      } else if (currentRoom === 'distortion_room') {
+        // Stepped onto Lobby return door in private room (bottom center X=400, Y=540)
+        // Trigger transition if Y is near the bottom (> 500) and X is within the door [360, 440]
+        if (player.current.y > 500 && player.current.x >= 360 && player.current.x <= 440) {
+          setCurrentRoom('lobby');
+          // Spawn player right in front of the door they just came out of (safely outside trigger boundaries)
+          if (selectedType === 'catastrophizing') { player.current.x = 190; player.current.y = 100; }
+          else if (selectedType === 'black_and_white') { player.current.x = 190; player.current.y = 260; }
+          else if (selectedType === 'mind_reading') { player.current.x = 190; player.current.y = 460; }
+          else if (selectedType === 'overgeneralization') { player.current.x = 610; player.current.y = 460; }
+          else if (selectedType === 'personalization') { player.current.x = 610; player.current.y = 260; }
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Stepped onto Rooftop direct door in private room (right center X=740, Y=300)
+        // Trigger transition if X is near the right edge (> 710) and Y is within the door [260, 340]
+        if (player.current.x > 710 && player.current.y >= 260 && player.current.y <= 340) {
+          setCurrentRoom('rooftop');
+          // Spawn safely on the rooftop deck outside the door trigger zone
+          player.current.x = 215;
+          player.current.y = 270;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Stepped onto the distortion NPC to trigger CBT reframe conversation
+        const npcDist = Math.hypot(player.current.x - 400, player.current.y - 200);
+        if (npcDist < 24) {
+          cancelAnimationFrame(animationFrameId.current);
+          keysPressed.current = {};
+          handleStartGame(selectedType);
+          return;
+        }
+      }
+
+      // 3. Save canvas context and apply scaling to stretch 800x600 map to cover full viewport edge-to-edge
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      
+      const scaleX = canvas.width / 800;
+      const scaleY = canvas.height / 600;
+      ctx.scale(scaleX, scaleY);
+
+      if (currentRoom === 'rooftop') {
+        // Rooftop Outer Sky & Parallax Skyline rendering
+        ctx.fillStyle = '#050515';
+        ctx.fillRect(0, 0, 800, 600);
+
+        ctx.fillStyle = '#0a081a';
+        ctx.fillRect(40, 100, 80, 100);
+        ctx.fillRect(160, 70, 100, 130);
+        ctx.fillRect(320, 110, 70, 90);
+        ctx.fillRect(440, 60, 120, 140);
+        ctx.fillRect(620, 120, 80, 80);
+        ctx.fillRect(740, 90, 110, 110);
+
+        ctx.fillStyle = '#110e28';
+        ctx.fillRect(100, 120, 90, 80);
+        ctx.fillRect(240, 100, 110, 100);
+        ctx.fillRect(400, 130, 70, 70);
+        ctx.fillRect(520, 105, 120, 95);
+        ctx.fillRect(680, 125, 95, 75);
+
+        ctx.fillStyle = 'rgba(254, 240, 138, 0.3)';
+        const buildingLights = [
+          [120, 140], [150, 140], [120, 160],
+          [270, 120], [300, 120], [270, 140],
+          [540, 130], [580, 130], [560, 150]
+        ];
+        buildingLights.forEach(([lx, ly]) => {
+          ctx.fillRect(lx, ly, 3, 3);
+        });
+
+        // Draw Rooftop background image
+        if (bgImageRef.current && bgLoaded) {
+          ctx.drawImage(bgImageRef.current, 0, 0, 800, 600);
+        }
+
+        // Draw Translucent Water Puddles (rooftop only)
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.12)';
+        const drawPuddle = (px, py, rx, ry) => {
+          ctx.beginPath();
+          ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI*2);
+          ctx.fill();
+        };
+        drawPuddle(180, 240, 30, 10);
+        drawPuddle(580, 320, 45, 15);
+        drawPuddle(380, 460, 35, 12);
+
+        // Draw spotlight cast cone (rooftop only)
+        ctx.fillStyle = 'rgba(253, 224, 71, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(100, 460);
+        ctx.lineTo(800, 150);
+        ctx.lineTo(800, 600);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw Dynamic Weather Rain (rooftop only)
+        if (!prefersReducedMotion && rainParticles.current.length > 0) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+          ctx.lineWidth = 1;
+          rainParticles.current.forEach((p) => {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - 2, p.y + p.len);
+            ctx.stroke();
+
+            p.y += p.speed * dt;
+            p.x -= (p.speed * 0.18) * dt;
+
+            if (p.y > 600) {
+              p.y = -20;
+              p.x = Math.random() * 800;
+            }
+          });
+        }
+      } else if (currentRoom === 'lobby') {
+        // Ground Floor Lobby interior rendering
+        if (lobbyBgRef.current && lobbyBgLoaded) {
+          ctx.drawImage(lobbyBgRef.current, 0, 0, 800, 600);
+        } else {
+          ctx.fillStyle = '#451a03';
+          ctx.fillRect(0, 0, 800, 600);
+        }
+
+        // Draw dynamic visible wooden door leading to the ROOFTOP at the top center (X=420, Y=60)
+        // With wooden frame details and golden retro handles
+        ctx.fillStyle = '#451a03'; // Wooden door frame border
+        ctx.fillRect(394, 46, 52, 58);
+        ctx.fillStyle = '#7c2d12'; // Door body
+        ctx.fillRect(400, 50, 40, 50);
+        ctx.fillStyle = '#fef08a'; // Golden retro handle dot
+        ctx.fillRect(430, 75, 4, 4);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("ROOFTOP", 420, 36);
+      } else if (currentRoom === 'distortion_room') {
+        // Dedicated private themed room visualization from Nano Banana
+        const themedRoomBg = roomBgImagesRef.current[selectedType];
+        if (themedRoomBg && roomBgsLoaded) {
+          // Draw high-detail custom room background from Cloudinary
+          ctx.drawImage(themedRoomBg, 0, 0, 800, 600);
+        } else {
+          // Fallback cozy dark room if background is loading
+          ctx.fillStyle = '#1e1b4b';
+          ctx.fillRect(0, 0, 800, 120);
+          ctx.fillStyle = '#2e2528';
+          ctx.fillRect(0, 120, 800, 480);
+          ctx.fillStyle = '#991b1b';
+          ctx.fillRect(150, 200, 500, 260);
+        }
+
+        // Render Room text labels dynamically over doors
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("LOBBY EXIT", 400, 515);
+        ctx.fillText("ROOFTOP", 760, 240);
+
+        ctx.fillStyle = '#2dd4bf';
+        ctx.font = '12px "Press Start 2P"';
+        ctx.fillText(preProcessDistortionName(selectedType).toUpperCase(), 400, 60);
+
+        // Draw the single distortion NPC sprite centered in the room (Large size matching other characters)
+        const npcImg = spriteImagesRef.current[selectedType];
+        if (npcImg && npcImg.complete) {
+          ctx.drawImage(
+            npcImg,
+            400 - 40,
+            200 - 40,
+            80,
+            80
+          );
+        } else {
+          ctx.fillStyle = '#a855f7';
+          ctx.beginPath();
+          ctx.arc(400, 200, 20, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      // Draw Grid Overlay lines (translucent for retro alignment)
+      ctx.strokeStyle = 'rgba(71, 85, 105, 0.15)';
+      ctx.lineWidth = 0.5;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          ctx.strokeRect(c * TILE_SIZE, r * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+      }
+
+      // Draw player character sprite scaled up to 120px to match tall background characters exactly
+      const VISUAL_PLAYER_SIZE = 120;
+      if (playerImageRef.current && playerImageRef.current.complete) {
+        ctx.drawImage(
+          playerImageRef.current,
+          player.current.x - VISUAL_PLAYER_SIZE / 2,
+          player.current.y - VISUAL_PLAYER_SIZE / 2,
+          VISUAL_PLAYER_SIZE,
+          VISUAL_PLAYER_SIZE
+        );
+      } else {
+        ctx.fillStyle = '#14b8a6';
+        ctx.fillRect(
+          player.current.x - player.current.radius,
+          player.current.y - player.current.radius,
+          player.current.radius * 2,
+          player.current.radius * 2
+        );
+      }
+
+      // Draw dark radial ambient vignette
+      const vignette = ctx.createRadialGradient(400, 300, 250, 400, 300, 520);
+      vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      vignette.addColorStop(1, 'rgba(0, 0, 0, 0.65)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, 800, 600);
+
+      // Restore scaling context
+      ctx.restore();
+
+      animationFrameId.current = requestAnimationFrame(gameLoop);
+    };
+
+    animationFrameId.current = requestAnimationFrame(gameLoop);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId.current);
+    };
+  }, [stage, bgLoaded, lobbyBgLoaded, roomBgsLoaded, prefersReducedMotion, canvasDimensions, currentRoom, selectedType]);
+
+  const handleStartGame = (typeKey) => {
+    setSelectedType(typeKey);
+    setIntensity(100);
+    const openingText = DEFAULT_OPENING_LINES[typeKey] || "Things are looking pretty hopeless right now.";
+    setChatLog([
+      { sender: 'monster', text: openingText }
+    ]);
+    setStage('chat');
+    setUserInput('');
+    setError(null);
+  };
+
+  const handleSubmitReframe = async (e) => {
+    e.preventDefault();
+    if (!userInput.trim() || isLoading) return;
+
+    const playerText = userInput.trim();
+    setUserInput('');
+    setError(null);
+
+    setChatLog(prev => [...prev, { sender: 'player', text: playerText }]);
+    setIsLoading(true);
+
+    const lastMonsterMessage = [...chatLog]
+      .reverse()
+      .find(msg => msg.sender === 'monster');
+    const monsterStatement = lastMonsterMessage ? lastMonsterMessage.text : "";
+
+    try {
+      const response = await reframeAPI.judgeReframe({
+        distortion_type: selectedType,
+        monster_statement: monsterStatement,
+        player_reframe: playerText
+      });
+
+      const damageValue = response.damage || 0;
+      const feedbackText = response.feedback;
+      const nextMonsterResponse = response.monster_response;
+
+      const newIntensity = Math.max(0, intensity - damageValue);
+      setIntensity(newIntensity);
+
+      setChatLog(prev => [
+        ...prev,
+        { 
+          sender: 'feedback', 
+          text: feedbackText, 
+          isPositive: response.addresses_distortion 
+        }
+      ]);
+
+      if (newIntensity <= 15) {
+        setTimeout(() => {
+          setStage('settled');
+        }, prefersReducedMotion ? 0 : 800);
+      } else {
+        setChatLog(prev => [...prev, { sender: 'monster', text: nextMonsterResponse }]);
+      }
+    } catch (err) {
+      console.error("Evaluation error:", err);
+      setUserInput(playerText);
+      setError("The connection to the judging engine failed. Please try sending your reframe again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    player.current.x = 400;
+    player.current.y = 350;
+    
+    // Return player inside the dedicated private room instead of the lobby directly
+    setCurrentRoom('distortion_room');
+    setStage('select');
+    setSelectedType(selectedType); // Retain room challenge selection
+    setIntensity(100);
+    setChatLog([]);
+    setUserInput('');
+    setError(null);
+  };
+
+  const handleBack = () => {
+    if (onExit) {
+      onExit();
+    } else {
+      window.location.href = '/';
+    }
+  };
+
+  // Selection Phase (Full-Screen Scaled Interactive Map)
+  if (stage === 'select') {
+    return (
+      <div className="w-screen h-screen bg-slate-950 text-white font-poppins relative overflow-hidden select-none">
+        
+        {/* HUD Absolute Nav Header */}
+        <div className="absolute top-6 left-6 z-10 flex items-center gap-4">
+          <button 
+            onClick={handleBack}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900/95 border-2 border-slate-700 hover:border-slate-500 rounded-none text-white font-pixel-body text-base transition backdrop-blur-sm shadow-md"
+          >
+            <ArrowLeft size={14} />
+            BACK
+          </button>
+          <div className="flex items-center gap-2 bg-slate-900/95 px-4 py-2 border-2 border-slate-700 backdrop-blur-sm shadow-md">
+            <Brain className="text-purple-400 w-5 h-5" />
+            <span className="font-pixel-title text-xs text-teal-400 tracking-wider">
+              {currentRoom === 'rooftop' ? "ROOFTOP DECK" : currentRoom === 'lobby' ? "BUILDING LOBBY" : "DISTORTION ROOM"}
+            </span>
+          </div>
+        </div>
+
+        {/* Full Viewport Canvas (Stretching the 800x600 map edge-to-edge) */}
+        <canvas 
+          ref={canvasRef} 
+          width={canvasDimensions.width} 
+          height={canvasDimensions.height}
+          className="absolute inset-0 block bg-slate-950 cursor-default"
+          style={{ imageRendering: 'pixelated' }}
+        />
+
+        {/* Closeable Legend & HUD Panel (Bottom-Left) */}
+        {showLegend ? (
+          <div className="absolute bottom-6 left-6 z-10 max-w-lg bg-slate-900/95 border-4 border-slate-700 rounded-none p-4 backdrop-blur-sm flex flex-col gap-3 shadow-lg animate-fade-in">
+            
+            {/* Legend Header with Close Action */}
+            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+              <h3 className="font-pixel-body text-base text-teal-400 font-bold flex items-center gap-2">
+                <span>CONTROLS: WASD / ARROW KEYS</span>
+              </h3>
+              <button 
+                onClick={() => setShowLegend(false)}
+                className="text-slate-400 hover:text-white font-pixel-body font-bold text-sm px-2 bg-slate-950 border border-slate-700 hover:border-slate-500 rounded-none ml-4 transition"
+                title="Close Info Panel"
+              >
+                X
+              </button>
+            </div>
+
+            <p className="text-slate-300 text-xs leading-relaxed">
+              {currentRoom === 'rooftop' 
+                ? "You are outside on the observation deck. Walk directly into the arched brick building doorway to enter the Lobby."
+                : currentRoom === 'lobby'
+                ? "You are in the ground floor lobby. Walk into the doorways (Room 101, 102, 103, Lounge, Admin) to enter dedicated rooms. Stepping onto the bottom doorway EXITS the building."
+                : "You are inside a private distortion room. Stepping onto the bottom door exits to the LOBBY. Stepping onto the right door transitions directly to the ROOFTOP."}
+            </p>
+          </div>
+        ) : (
+          /* Reopen panel floating help button */
+          <button
+            onClick={() => setShowLegend(true)}
+            className="absolute bottom-6 left-6 z-10 px-4 py-2 bg-slate-900/95 border-2 border-slate-700 hover:border-slate-500 text-teal-400 font-pixel-body text-xs rounded-none backdrop-blur-sm transition shadow-md"
+          >
+            HELP / LEGEND
+          </button>
+        )}
+
+      </div>
+    );
+  }
+
+  // Conversation/Battle Phase Render
+  return (
+    <div className="min-h-screen bg-slate-950 text-white font-poppins flex flex-col p-6 overflow-x-hidden relative">
+      
+      {/* Dialogue Header */}
+      <div className="flex items-center justify-between mb-6 max-w-7xl mx-auto w-full z-10">
+        <button 
+          onClick={handleReset}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-900 border-2 border-slate-700 hover:border-slate-500 rounded-none text-white font-pixel-body text-lg transition"
+        >
+          <ArrowLeft size={16} />
+          SELECT DISTORTION
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="font-pixel-body text-xl text-teal-400 tracking-wider font-bold">
+            {preProcessDistortionName(selectedType).toUpperCase()}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch z-10 mb-6">
+        
+        {/* Left Column: Portrait, Stats & Clarity meter */}
+        <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="bg-slate-900 border-4 border-slate-700 rounded-none p-6 flex flex-col gap-6 shadow-none h-full justify-between">
+            <div>
+              <span className="font-pixel-body text-sm uppercase font-bold tracking-wider text-purple-400">Current Pattern</span>
+              <h2 className="font-pixel-body text-3xl font-bold mt-1 text-white leading-tight">
+                {preProcessDistortionName(selectedType)}
+              </h2>
+              
+              {/* Character Portrait */}
+              <div className="w-full aspect-square bg-slate-950 border-4 border-slate-700 rounded-none overflow-hidden my-4">
+                <img 
+                  src={processedSprites[selectedType] || CHARACTER_SPRITES[selectedType]} 
+                  alt={selectedType}
+                  className="w-full h-full object-cover"
+                  style={{ imageRendering: 'pixelated' }}
+                />
+              </div>
+
+              <p className="text-slate-300 text-sm leading-relaxed border-b border-slate-700 pb-4">
+                {distortionTypes[selectedType]}
+              </p>
+
+              {/* Clarity meter */}
+              <div className="mt-6 space-y-3">
+                <div className="flex justify-between items-end">
+                  <span className="font-pixel-body text-base text-slate-400 font-semibold flex items-center gap-1">
+                    <TrendingDown size={16} className="text-teal-400" />
+                    DISTORTION INTENSITY
+                  </span>
+                  <span className={`font-pixel-body text-lg font-bold ${intensity > 50 ? 'text-red-400' : 'text-teal-400'}`}>
+                    {intensity}%
+                  </span>
+                </div>
+                <div className="bg-slate-950 border-4 border-slate-700 rounded-none h-7 relative p-[2px]">
+                  <div 
+                    className="h-full bg-red-700 transition-all duration-700 ease-out"
+                    style={{ width: `${intensity}%` }}
+                  />
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed italic mt-2">
+                  Dismantle the negative voice by providing realistic, balanced perspectives. Reduce distortion intensity below 15% to resolve the thought.
+                </p>
+              </div>
+            </div>
+
+            {/* Support box */}
+            <div className="bg-slate-950 border-2 border-teal-800 rounded-none p-4">
+              <h4 className="font-pixel-body text-sm text-teal-400 font-bold mb-1 flex items-center gap-1">
+                <Heart size={14} />
+                CBT GUIDANCE
+              </h4>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Take a deep breath. Focus on gathering evidence against the negative claim. Try to think what you would say to a close friend facing the same doubt.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Chat Screen */}
+        <div className="lg:col-span-8 flex flex-col bg-slate-900 border-4 border-slate-700 rounded-none p-6 shadow-none h-[600px] lg:h-auto justify-between">
+          
+          {/* Chat message feed */}
+          <div className="flex-1 overflow-y-auto space-y-4 p-4 mb-4 bg-slate-950 border-4 border-slate-800 rounded-none flex flex-col justify-start">
+            <AnimatePresence initial={false}>
+              {chatLog.map((msg, index) => {
+                if (msg.sender === 'monster') {
+                  return (
+                    <motion.div 
+                      key={index}
+                      className="flex flex-col max-w-[85%] self-start"
+                      initial={prefersReducedMotion ? {} : { opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      <span className="font-pixel-body text-xs text-purple-400 uppercase tracking-widest font-bold ml-1 mb-1">
+                        Negative Voice
+                      </span>
+                      <div className="bg-purple-950 border-2 border-purple-800 text-purple-100 rounded-none p-4 shadow-none leading-relaxed text-sm">
+                        {msg.text}
+                      </div>
+                    </motion.div>
+                  );
+                } else if (msg.sender === 'player') {
+                  return (
+                    <motion.div 
+                      key={index}
+                      className="flex flex-col max-w-[85%] self-end"
+                      initial={prefersReducedMotion ? {} : { opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      <span className="font-pixel-body text-xs text-teal-400 uppercase tracking-widest font-bold mr-1 mb-1 text-right">
+                        Your Reframe
+                      </span>
+                      <div className="bg-indigo-950 border-2 border-indigo-700 text-white rounded-none p-4 shadow-none leading-relaxed text-sm">
+                        {msg.text}
+                      </div>
+                    </motion.div>
+                  );
+                } else {
+                  // Feedback from evaluation
+                  return (
+                    <motion.div 
+                      key={index}
+                      className="w-full flex justify-center py-2"
+                      initial={prefersReducedMotion ? {} : { opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.4 }}
+                    >
+                      <div className={`flex items-start gap-3 rounded-none p-4 border max-w-[90%] text-sm leading-relaxed ${
+                        msg.isPositive 
+                          ? 'bg-teal-950/40 border-teal-800/40 text-teal-200' 
+                          : 'bg-amber-950/40 border-amber-800/40 text-amber-200'
+                      }`}>
+                        <div className="mt-[2px] flex-shrink-0">
+                          {msg.isPositive ? <CheckCircle size={18} className="text-teal-400" /> : <AlertCircle size={18} className="text-amber-400" />}
+                        </div>
+                        <div>
+                          <span className="font-pixel-body text-xs block uppercase font-bold tracking-wider text-slate-400 mb-1">
+                            CBT REFLECTION
+                          </span>
+                          {msg.text}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                }
+              })}
+            </AnimatePresence>
+
+            {isLoading && (
+              <motion.div 
+                className="flex items-center gap-2 self-start bg-slate-900 border-2 border-slate-800 rounded-none p-4 text-slate-400 text-sm font-pixel-body"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <Loader2 className="w-4 h-4 animate-spin text-teal-400" />
+                EVALUATING THOUGHT REFRAME...
+              </motion.div>
+            )}
+
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Form input panel */}
+          <form onSubmit={handleSubmitReframe} className="space-y-3">
+            {error && (
+              <div className="flex items-center gap-2 bg-red-950/40 border-2 border-red-800 rounded-none p-3 text-red-200 text-sm">
+                <AlertCircle size={16} className="text-red-400 flex-shrink-0" />
+                <p className="flex-1 font-pixel-body">{error}</p>
+              </div>
+            )}
+
+            <div className="relative flex flex-col md:flex-row items-stretch gap-3">
+              <textarea
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder="Type your healthy reframe here..."
+                disabled={isLoading || stage === 'settled'}
+                maxLength={400}
+                className="flex-1 bg-slate-950 border-2 border-slate-700 rounded-none p-4 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 resize-none min-h-[80px] disabled:opacity-50 text-sm leading-relaxed"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmitReframe(e);
+                  }
+                }}
+              />
+              <button
+                type="submit"
+                disabled={!userInput.trim() || isLoading || stage === 'settled'}
+                className="px-6 py-3 bg-slate-800 hover:bg-slate-700 border-4 border-slate-600 disabled:border-slate-800 disabled:bg-slate-900 text-white font-pixel-body text-base font-bold rounded-none shadow-none transition duration-200 flex items-center justify-center gap-2 self-end md:self-stretch disabled:opacity-50"
+              >
+                <Send size={18} />
+                SEND
+              </button>
+            </div>
+
+            <div className="flex justify-between items-center text-xs text-slate-400 px-1 font-pixel-body">
+              <span>Press Enter to send</span>
+              <span>{userInput.length}/400 chars</span>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Settle Resolution Overlay Stage */}
+      <AnimatePresence>
+        {stage === 'settled' && (
+          <motion.div 
+            className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-6"
+            initial={prefersReducedMotion ? {} : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div 
+              className="bg-slate-900 border-8 border-slate-700 rounded-none p-8 max-w-xl w-full text-center shadow-none relative overflow-hidden"
+              initial={prefersReducedMotion ? {} : { scale: 0.9, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 50 }}
+              transition={{ duration: 0.5, type: 'spring' }}
+            >
+              <div className="w-20 h-20 bg-slate-950 border-4 border-teal-500 rounded-none flex items-center justify-center mx-auto mb-6 text-teal-400">
+                <CheckCircle size={40} className="animate-pulse" />
+              </div>
+
+              <h2 className="text-xl md:text-2xl font-pixel-title leading-relaxed mb-6 text-teal-400">
+                THE THOUGHT HAS SETTLED
+              </h2>
+
+              <p className="text-slate-300 text-base leading-relaxed mb-8">
+                Through mindful CBT reframing, you have successfully dismantled the negative distortion and reduced its intensity down to <span className="text-teal-400 font-bold">{intensity}%</span>. The voice has lost its grip, and calm clarity is restored to your mind.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button
+                  onClick={handleReset}
+                  className="px-6 py-4 bg-slate-950 border-4 border-slate-700 hover:border-slate-500 rounded-none text-white font-pixel-body text-lg font-bold transition flex items-center justify-center gap-2"
+                >
+                  <RotateCcw size={18} />
+                  REFRAME ANOTHER
+                </button>
+                <button
+                  onClick={handleBack}
+                  className="px-6 py-4 bg-gradient-to-r from-teal-500 to-emerald-600 border-4 border-teal-400 text-slate-950 font-pixel-body text-lg font-bold rounded-none shadow-none transition flex items-center justify-center gap-2 hover:scale-[1.02]"
+                >
+                  <Award size={18} />
+                  COMPLETE SESSION
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default ReframeGame;

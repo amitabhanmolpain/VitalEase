@@ -6,6 +6,8 @@ import { Login } from "./components/Auth";
 import { Dashboard } from "./components/Dashboard";
 import AdminLogin from "./components/Admin/AdminLogin";
 import AdminDashboard from "./components/Admin/AdminDashboard";
+import ReframeGame from './components/ReframeGame/ReframeGame';
+import ReframeWorldTest from './components/ReframeGame/ReframeWorldTest';
 import { authAPI } from './services/api';
 
 const App = () => {
@@ -56,6 +58,8 @@ const App = () => {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         {/* User Routes */}
+        <Route path="/reframe-game" element={<ReframeGame onExit={() => window.location.href = '/'} />} />
+        <Route path="/reframe-game/world-test" element={<ReframeWorldTest />} />
         <Route path="/" element={
           showDashboard && !isAuthenticated ? (
             <Login onLogin={handleLogin} />
