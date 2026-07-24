@@ -4,6 +4,7 @@ import { doctors } from "../../constants";
 import ThoughtBattleGame from "../../ThoughtBattleGame";
 import LifeQuestGame from "../LifeQuest/LifeQuestGame";
 import EmotionQuestGame from "../EmotionQuest/EmotionQuestGame";
+import ReframeGame from "../ReframeGame/ReframeGame";
 import useGameStore from "../../store/gameStore";
 import { 
   Heart, 
@@ -493,6 +494,14 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
     );
   }
 
+  if (activeGame === 'reframegame') {
+    return (
+      <div className="fixed inset-0 z-50 overflow-auto">
+        <ReframeGame onExit={() => setActiveGame(null)} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -822,6 +831,56 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
               >
                 <span className="text-2xl">🎭</span>
                 Start Story
+              </button>
+            </div>
+
+            {/* Thought Reframer Card */}
+            <div className="bg-gradient-to-br from-indigo-900/50 to-teal-900/50 rounded-2xl p-8 backdrop-blur-sm border border-teal-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-teal-500 to-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Brain size={32} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-poppins font-bold text-2xl text-white">Thought Reframer</h3>
+                  <p className="text-teal-300">CBT Cognitive Exercises</p>
+                </div>
+              </div>
+
+              <p className="text-gray-300 mb-6 leading-relaxed">
+                Deconstruct automated negative thought patterns. Select a distortion type, analyze its core flaws, and write balanced reframes to weaken it.
+              </p>
+
+              <div className="bg-teal-700/30 rounded-xl p-4 mb-6">
+                <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <Trophy size={18} className="text-yellow-400" />
+                  Game Features:
+                </h4>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Brain size={14} className="text-purple-400" />
+                    <span>5 Distortions</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Lightbulb size={14} className="text-yellow-400" />
+                    <span>AI Reflection</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <Heart size={14} className="text-red-400" />
+                    <span>Mindful Settle</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-gray-300">
+                    <CheckCircle size={14} className="text-blue-400" />
+                    <span>Evidence-Based</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveGame('reframegame')}
+                className="w-full py-4 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-xl text-slate-950 font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+              >
+                <Brain size={24} />
+                Start Reframing
               </button>
             </div>
           </div>

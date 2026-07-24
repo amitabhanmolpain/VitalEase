@@ -6,6 +6,7 @@ import { Login } from "./components/Auth";
 import { Dashboard } from "./components/Dashboard";
 import AdminLogin from "./components/Admin/AdminLogin";
 import AdminDashboard from "./components/Admin/AdminDashboard";
+import ReframeGame from './components/ReframeGame/ReframeGame';
 import { authAPI } from './services/api';
 
 const App = () => {
@@ -56,6 +57,7 @@ const App = () => {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
         {/* User Routes */}
+        <Route path="/reframe-game" element={<ReframeGame onExit={() => window.location.href = '/'} />} />
         <Route path="/" element={
           showDashboard && !isAuthenticated ? (
             <Login onLogin={handleLogin} />

@@ -1,5 +1,7 @@
 from flask import Blueprint, request, jsonify
 from .gemini_client import evaluate_reframe
+from .art_generator import generate_pixel_art
+import uuid
 
 reframe_game_bp = Blueprint('reframe_game', __name__, url_prefix='/api/reframe-game')
 
@@ -69,3 +71,36 @@ def judge_reframe():
     result["damage"] = round(damage, 2)
 
     return jsonify(result), 200
+
+@reframe_game_bp.route('/generate-art', methods=['POST'])
+def generate_art():
+    """
+    POST endpoint for admin/dev to generate pixel art assets.
+    Payload: {"prompt": str, "asset_type": "background" | "character"}
+    """
+    data = request.get_json() or {}
+    prompt = data.get("prompt")
+    asset_type = data.get("asset_type")
+
+    if not prompt or not asset_type:
+        return jsonify({
+            "error": "Bad Request",
+            "message": "Missing required fields. Please provide 'prompt' and 'asset_type'."
+        }), 400
+
+    if asset_type not in ["background", "character"]:
+        return jsonify({
+            "error": "Bad Request",
+            "message": "Invalid 'asset_type'. Must be 'background' or 'character'."
+        }), 400
+
+    try:
+        filename = f"{asset_type}_{uuid.uuid4().hex}"
+        image_url = generate_pixel_art(prompt, filename)
+        return jsonify({"image_url": image_url}), 200
+    except Exception as e:
+        print(f"[Art Generation Error] {e}")
+        return jsonify({
+            "error": "Image Generation Failed",
+            "message": str(e)
+        }), 502
