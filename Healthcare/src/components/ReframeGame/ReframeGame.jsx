@@ -595,7 +595,7 @@ const ReframeGame = ({ onExit }) => {
         } else if (newX >= 450 && newX <= 550) {
           // Hotel Lobby steps: Y can go down to 360
           if (newY - r < 360) return true;
-        } else if (newX >= 640 && newX <= 730) {
+        } else if (newX >= 540 && newX <= 630) {
           // Temple steps: Y can go down to 280
           if (newY - r < 280) return true;
         } else {
@@ -659,10 +659,31 @@ const ReframeGame = ({ onExit }) => {
       let dx = 0;
       let dy = 0;
 
-      if (keysPressed.current['w'] || keysPressed.current['arrowup']) dy -= 1;
-      if (keysPressed.current['s'] || keysPressed.current['arrowdown']) dy += 1;
-      if (keysPressed.current['a'] || keysPressed.current['arrowleft']) dx -= 1;
-      if (keysPressed.current['d'] || keysPressed.current['arrowright']) dx += 1;
+      const isPressed = (k1, k2) => keysPressed.current[k1] || keysPressed.current[k2];
+      const up = isPressed('w', 'arrowup');
+      const down = isPressed('s', 'arrowdown');
+      const left = isPressed('a', 'arrowleft');
+      const right = isPressed('d', 'arrowright');
+
+      if (currentRoom === 'rooftop' && player.current.x < 240) {
+        // Rooftop stairs incline: UP/LEFT goes left/up, DOWN/RIGHT goes right/down
+        if (up || left) { dx -= 1; dy -= 0.6; }
+        if (down || right) { dx += 1; dy += 0.6; }
+      } else if (currentRoom === 'outside' && player.current.x >= 70 && player.current.x <= 160 && player.current.y <= 410) {
+        // Left Wing stairs incline: UP/RIGHT goes right/up, DOWN/LEFT goes left/down
+        if (up || right) { dx += 1; dy -= 1.2; }
+        if (down || left) { dx -= 1; dy += 1.2; }
+      } else if (currentRoom === 'outside' && player.current.x >= 540 && player.current.x <= 630 && player.current.y <= 410) {
+        // Temple stairs incline: UP/RIGHT goes right/up, DOWN/LEFT goes left/down (same as Left Wing steps)
+        if (up || right) { dx += 1; dy -= 1.2; }
+        if (down || left) { dx -= 1; dy += 1.2; }
+      } else {
+        // Standard movement
+        if (up) dy -= 1;
+        if (down) dy += 1;
+        if (left) dx -= 1;
+        if (right) dx += 1;
+      }
 
       if (dx !== 0 && dy !== 0) {
         const len = Math.sqrt(dx*dx + dy*dy);
@@ -683,8 +704,8 @@ const ReframeGame = ({ onExit }) => {
       } else if (currentRoom === 'outside') {
         if (player.current.x >= 70 && player.current.x <= 160 && player.current.y <= 410) {
           player.current.y = 410 - (player.current.x - 70) * 1.2;
-        } else if (player.current.x >= 640 && player.current.x <= 730 && player.current.y <= 410) {
-          player.current.y = 410 - (730 - player.current.x) * 1.2;
+        } else if (player.current.x >= 540 && player.current.x <= 630 && player.current.y <= 410) {
+          player.current.y = 410 - (player.current.x - 540) * 1.2;
         }
       }
 
@@ -786,8 +807,8 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
  
-        // Enters Left Wing palace building at the top of Left Wing stairs (X: [140, 170], Y <= 315)
-        if (player.current.y <= 315 && player.current.x >= 140 && player.current.x <= 170) {
+        // Enters Left Wing palace building at the top of Left Wing stairs (X: [140, 170], Y <= 325)
+        if (player.current.y <= 325 && player.current.x >= 140 && player.current.x <= 170) {
           setCurrentRoom('left_wing');
           // Spawn inside the Left Wing building lobby
           player.current.x = 400;
@@ -797,8 +818,8 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
  
-        // Enters Temple at the top of Temple stairs (X: [630, 660], Y <= 315)
-        if (player.current.y <= 315 && player.current.x >= 630 && player.current.x <= 660) {
+        // Enters Temple at the top of Temple stairs (X: [610, 640], Y <= 325)
+        if (player.current.y <= 325 && player.current.x >= 610 && player.current.x <= 640) {
           setCurrentRoom('temple_floor_1');
           // Spawn player inside Temple Floor 1
           player.current.x = 400;
@@ -873,7 +894,7 @@ const ReframeGame = ({ onExit }) => {
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('outside');
           // Spawn player slightly down the Temple stairs in the courtyard to prevent instant re-entry loop
-          player.current.x = 665;
+          player.current.x = 605;
           player.current.y = 310;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
@@ -1184,7 +1205,7 @@ const ReframeGame = ({ onExit }) => {
           if (px >= 80 && px <= 200) {
             // Left wing stairs depth scaling
             scaleFactor = 1.0 - ((410 - py) / 110) * 0.35;
-          } else if (px >= 600 && px <= 720) {
+          } else if (px >= 540 && px <= 630) {
             // Temple stairs depth scaling
             scaleFactor = 1.0 - ((410 - py) / 110) * 0.35;
           } else if (px >= 450 && px <= 550) {
