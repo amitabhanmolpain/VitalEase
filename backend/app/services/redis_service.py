@@ -10,9 +10,9 @@ class SafeRedis:
         try:
             self.client.ping()
             self.is_connected = True
-            print("✅ Redis connected")
+            print("[OK] Redis connected")
         except redis.ConnectionError:
-            print("❌ Redis connection failed - stats endpoint falling back to MongoDB")
+            print("[ERROR] Redis connection failed - stats endpoint falling back to MongoDB")
 
     def get(self, name):
         if not self.is_connected:
