@@ -1083,22 +1083,26 @@ const ReframeGame = ({ onExit }) => {
         ctx.font = '12px "Press Start 2P"';
         ctx.fillText(preProcessDistortionName(selectedType).toUpperCase(), 400, 60);
 
-        // Draw the single distortion NPC sprite centered in the room (Large size matching other characters)
-        const npcImg = spriteImagesRef.current[selectedType];
-        if (npcImg && npcImg.complete) {
-          ctx.drawImage(
-            npcImg,
-            400 - 40,
-            200 - 40,
-            80,
-            80
-          );
-        } else {
-          ctx.fillStyle = '#a855f7';
-          ctx.beginPath();
-          ctx.arc(400, 200, 20, 0, Math.PI*2);
-          ctx.fill();
-        }
+        // Draw a beautiful pulsating glowing magical sphere in the center of the room instead of the well monster
+        const breathingFactor = 1 + Math.sin(timestamp / 300) * 0.08;
+        const radius = 16 * breathingFactor;
+        
+        ctx.save();
+        // Inner core
+        ctx.fillStyle = '#2dd4bf'; // teal glow
+        ctx.shadowColor = '#14b8a6';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(400, 200, radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Outer aura ring
+        ctx.strokeStyle = 'rgba(45, 212, 191, 0.4)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(400, 200, radius + 6 + Math.sin(timestamp / 150) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
 
         // Window lightning animations (thunder flashes inside window frames)
         const THEMED_ROOM_WINDOWS = [
