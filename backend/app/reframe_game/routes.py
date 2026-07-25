@@ -128,7 +128,7 @@ def speak():
         tokenizer = AutoTokenizer.from_pretrained("ai4bharat/indic-parler-tts")
         description_tokenizer = AutoTokenizer.from_pretrained(model.config.text_encoder._name_or_path)
 
-        description = "Divya speaks in a warm, friendly Indian-accented English tone. The recording is of very high quality with no background noise."
+        description = data.get("description", "Divya speaks in a warm, friendly Indian-accented English tone. The recording is of very high quality with no background noise.")
 
         input_ids = description_tokenizer(description, return_tensors="pt").input_ids
         prompt_ids = tokenizer(text, return_tensors="pt").input_ids

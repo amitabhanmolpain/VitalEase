@@ -15,8 +15,8 @@ export const reframeAPI = {
     return response.data;
   },
 
-  speak: async (text) => {
-    const response = await apiClient.post('/reframe-game/speak', { text }, { responseType: 'blob' });
+  speak: async (text, description = "") => {
+    const response = await apiClient.post('/reframe-game/speak', { text, description }, { responseType: 'blob' });
     return response.data;
   }
 };

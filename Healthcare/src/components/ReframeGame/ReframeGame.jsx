@@ -257,6 +257,58 @@ const ReframeGame = ({ onExit }) => {
   const hasTriggeredSpeech = useRef(false);
   const [receptionistDialogueOpen, setReceptionistDialogueOpen] = useState(false);
   const receptionistAudioRef = useRef(null);
+  const [playerSpeaking, setPlayerSpeaking] = useState(false);
+  const lobbyMusicPlayerRef = useRef(null);
+
+  useEffect(() => {
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentRoom === 'lobby' && stage === 'select') {
+      const initPlayer = () => {
+        if (lobbyMusicPlayerRef.current) return;
+        lobbyMusicPlayerRef.current = new window.YT.Player('lobby-music-player', {
+          height: '1',
+          width: '1',
+          videoId: 'g-O3ZVNKZLY',
+          playerVars: {
+            autoplay: 1,
+            loop: 1,
+            playlist: 'g-O3ZVNKZLY',
+            controls: 0,
+            mute: 0
+          },
+          events: {
+            onReady: (event) => {
+              // Set volume to 25% (reduced comfortable level)
+              event.target.setVolume(25);
+            }
+          }
+        });
+      };
+
+      if (window.YT && window.YT.Player) {
+        initPlayer();
+      } else {
+        window.onYouTubeIframeAPIReady = () => {
+          initPlayer();
+        };
+      }
+    } else {
+      if (lobbyMusicPlayerRef.current) {
+        try {
+          lobbyMusicPlayerRef.current.destroy();
+        } catch (e) {}
+        lobbyMusicPlayerRef.current = null;
+      }
+    }
+  }, [currentRoom, stage]);
 
   // Canvas movement references
   const canvasRef = useRef(null);
@@ -733,6 +785,79 @@ const ReframeGame = ({ onExit }) => {
     }
   };
 
+  const fallbackPlayerWebSpeech = (textToSpeak, onEnd) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      
+      const getMaleVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        // Specifically look for English (en) male voices, and exclude female voices
+        return voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male'))
+            || voices.find(v => v.name.toLowerCase().includes('male'))
+            || voices.find(v => v.lang.startsWith('en') && !v.name.toLowerCase().includes('female'))
+            || voices[0];
+      };
+
+      utterance.voice = getMaleVoice();
+      utterance.onend = () => {
+        setPlayerSpeaking(false);
+        if (onEnd) onEnd();
+      };
+      utterance.onerror = () => {
+        setPlayerSpeaking(false);
+        if (onEnd) onEnd();
+      };
+      setPlayerSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+    } else {
+      setPlayerSpeaking(true);
+      setTimeout(() => {
+        setPlayerSpeaking(false);
+        if (onEnd) onEnd();
+      }, 2000);
+    }
+  };
+
+  const triggerPlayerSpeech = async (textToSpeak, onEnd) => {
+    setReceptionistSubtitle(textToSpeak);
+    setPlayerSpeaking(true);
+
+    try {
+      const blob = await reframeAPI.speak(
+        textToSpeak, 
+        "A British man speaks in a warm, clear English tone. The recording is of very high quality with no background noise."
+      );
+      const audioUrl = URL.createObjectURL(blob);
+      
+      if (receptionistAudioRef.current) {
+        receptionistAudioRef.current.pause();
+      }
+
+      const audio = new Audio(audioUrl);
+      receptionistAudioRef.current = audio;
+      
+      audio.onended = () => {
+        setPlayerSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        if (onEnd) onEnd();
+      };
+      
+      audio.onerror = () => {
+        setPlayerSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        fallbackPlayerWebSpeech(textToSpeak, onEnd);
+      };
+
+      audio.play().catch(() => {
+        fallbackPlayerWebSpeech(textToSpeak, onEnd);
+      });
+    } catch (err) {
+      console.error("Player TTS failed, falling back to Web Speech:", err);
+      fallbackPlayerWebSpeech(textToSpeak, onEnd);
+    }
+  };
+
   const handleReceptionistChoice = (choiceText) => {
     console.log("Selected/sent choice:", choiceText);
     let reply = "I understand. How else can I help?";
@@ -745,7 +870,11 @@ const ReframeGame = ({ onExit }) => {
     } else if (choiceText.toLowerCase().includes("help")) {
       reply = "To clean your mind, step into the distortion doorways on the left.";
     }
-    triggerReceptionistSpeech(reply);
+
+    setReceptionistSpeaking(false);
+    triggerPlayerSpeech(choiceText, () => {
+      triggerReceptionistSpeech(reply);
+    });
   };
 
   const handleCanvasClick = (e) => {
@@ -1731,14 +1860,22 @@ const ReframeGame = ({ onExit }) => {
             {/* Header with Name, Role, Speaker and Leave button */}
             <div className="flex justify-between items-start border-b-2 border-amber-500/20 pb-2">
               <div>
-                <h4 className="font-bold text-lg font-pixel-body text-amber-400">Mira</h4>
-                <span className="text-[10px] text-amber-300/80 font-pixel-body">station receptionist</span>
+                <h4 className="font-bold text-lg font-pixel-body text-amber-400">
+                  {playerSpeaking ? "You" : "Mira"}
+                </h4>
+                <span className="text-[10px] text-amber-300/80 font-pixel-body">
+                  {playerSpeaking ? "seeker" : "station receptionist"}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => {
                     playRetroClickSound();
-                    triggerReceptionistSpeech(receptionistSubtitle || "How can I help you today?");
+                    if (playerSpeaking) {
+                      triggerPlayerSpeech(receptionistSubtitle);
+                    } else {
+                      triggerReceptionistSpeech(receptionistSubtitle || "How can I help you today?");
+                    }
                   }}
                   className="px-2 py-1 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-amber-200 transition rounded-none font-bold text-sm"
                   title="Play/Replay audio"
@@ -1762,7 +1899,7 @@ const ReframeGame = ({ onExit }) => {
               <p className="text-sm font-semibold leading-relaxed font-pixel-body text-amber-100">
                 "{receptionistSubtitle || "How can I help you today?"}"
               </p>
-              {receptionistSpeaking && (
+              {(receptionistSpeaking || playerSpeaking) && (
                 <span className="text-[9px] text-teal-400 font-bold uppercase tracking-wider animate-pulse mt-2 block font-pixel-body">
                   &gt; SPEAKING...
                 </span>
@@ -1879,17 +2016,9 @@ const ReframeGame = ({ onExit }) => {
           </button>
         )}
 
-        {/* Hidden YouTube Iframe player for background music in Lobby */}
+        {/* Hidden YouTube player div for background music in Lobby with reduced volume */}
         {currentRoom === 'lobby' && (
-          <iframe
-            width="1"
-            height="1; autoplay"
-            src="https://www.youtube.com/embed/g-O3ZVNKZLY?autoplay=1&loop=1&playlist=g-O3ZVNKZLY"
-            title="Lobby Music"
-            frameBorder="0"
-            allow="autoplay; encrypted-media"
-            className="absolute pointer-events-none opacity-0 invisible"
-          />
+          <div id="lobby-music-player" className="absolute pointer-events-none opacity-0 invisible" />
         )}
 
         {/* Hidden YouTube Iframe player for background music in Temple (Floor 1 & Floor 2) */}
