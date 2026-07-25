@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from .gemini_client import evaluate_reframe
 from .art_generator import generate_pixel_art
 import uuid
@@ -104,3 +104,45 @@ def generate_art():
             "error": "Image Generation Failed",
             "message": str(e)
         }), 502
+
+@reframe_game_bp.route("/speak", methods=["POST"])
+def speak():
+    """
+    Generates speech using ParlerTTS (Indian-accented female voice) and returns WAV file.
+    """
+    data = request.get_json() or {}
+    text = data.get("text", "How can I help you today?")
+    
+    try:
+        from parler_tts import ParlerTTSForConditionalGeneration
+        from transformers import AutoTokenizer
+        import torch
+        import soundfile as sf
+        import os
+
+        # Cache model/tokenizer locally
+        model = ParlerTTSForConditionalGeneration.from_pretrained(
+            "ai4bharat/indic-parler-tts"
+        ).to("cuda" if torch.cuda.is_available() else "cpu")
+
+        tokenizer = AutoTokenizer.from_pretrained("ai4bharat/indic-parler-tts")
+        description_tokenizer = AutoTokenizer.from_pretrained(model.config.text_encoder._name_or_path)
+
+        description = "Divya speaks in a warm, friendly Indian-accented English tone. The recording is of very high quality with no background noise."
+
+        input_ids = description_tokenizer(description, return_tensors="pt").input_ids
+        prompt_ids = tokenizer(text, return_tensors="pt").input_ids
+
+        generation = model.generate(input_ids=input_ids, prompt_input_ids=prompt_ids)
+        audio = generation.cpu().numpy().squeeze()
+        
+        output_path = os.path.join(os.path.dirname(__file__), "output.wav")
+        sf.write(output_path, audio, model.config.sampling_rate)
+        
+        return send_file(output_path, mimetype="audio/wav")
+    except Exception as e:
+        print(f"[TTS Error] Failed generating ParlerTTS speech: {e}")
+        return jsonify({
+            "error": "Failed to generate speech",
+            "message": str(e)
+        }), 500

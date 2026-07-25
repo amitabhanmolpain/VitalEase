@@ -134,6 +134,53 @@ const makeImageTransparent = (imgUrl) => {
   });
 };
 
+const drawSpeechBubble = (ctx, text, x, y) => {
+  ctx.save();
+  // Bubble body
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.95)'; // dark slate
+  ctx.strokeStyle = '#2dd4bf'; // teal border
+  ctx.lineWidth = 1.5;
+  
+  const w = 240;
+  const h = 40;
+  const rx = x;
+  const ry = y;
+
+  // Draw box
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(rx, ry, w, h, 6);
+  } else {
+    ctx.rect(rx, ry, w, h);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw bubble pointer (pointing left towards the receptionist)
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+  ctx.beginPath();
+  ctx.moveTo(rx, ry + 15);
+  ctx.lineTo(rx - 8, ry + 20);
+  ctx.lineTo(rx, ry + 25);
+  ctx.closePath();
+  ctx.fill();
+  
+  ctx.strokeStyle = '#2dd4bf';
+  ctx.beginPath();
+  ctx.moveTo(rx, ry + 15);
+  ctx.lineTo(rx - 8, ry + 20);
+  ctx.lineTo(rx, ry + 25);
+  ctx.stroke();
+
+  // Render text
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '7px "Press Start 2P"';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, rx + w / 2, ry + h / 2);
+  ctx.restore();
+};
+
 const ReframeGame = ({ onExit }) => {
   const [stage, setStage] = useState('select'); // 'select', 'chat', 'settled'
   const [currentRoom, setCurrentRoom] = useState('rooftop'); // 'rooftop', 'lobby', 'distortion_room'
@@ -201,6 +248,15 @@ const ReframeGame = ({ onExit }) => {
     width: window.innerWidth,
     height: window.innerHeight
   });
+
+  // Receptionist NPC States
+  const [receptionistSpeaking, setReceptionistSpeaking] = useState(false);
+  const [receptionistSubtitle, setReceptionistSubtitle] = useState("");
+  const [canvasCursor, setCanvasCursor] = useState('default');
+  const receptionistTimeoutRef = useRef(null);
+  const hasTriggeredSpeech = useRef(false);
+  const [receptionistDialogueOpen, setReceptionistDialogueOpen] = useState(false);
+  const receptionistAudioRef = useRef(null);
 
   // Canvas movement references
   const canvasRef = useRef(null);
@@ -568,6 +624,164 @@ const ReframeGame = ({ onExit }) => {
     };
   }, [stage]);
 
+  // Pre-load/cache voices on mount
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      const loadVoices = () => {
+        window.speechSynthesis.getVoices();
+      };
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+    return () => {
+      if (receptionistTimeoutRef.current) clearTimeout(receptionistTimeoutRef.current);
+    };
+  }, []);
+
+  const fallbackWebSpeech = (textToSpeak = "How can I help you today?") => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      
+      const getIndianFemaleVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        return voices.find(v => (v.lang === 'en-IN' || v.lang === 'hi-IN') && 
+                v.name.toLowerCase().includes('female'))
+            || voices.find(v => v.lang === 'en-IN')
+            || voices.find(v => v.lang === 'hi-IN')
+            || voices.find(v => v.name.toLowerCase().includes('female'))
+            || voices[0];
+      };
+
+      utterance.voice = getIndianFemaleVoice();
+
+      utterance.onend = () => {
+        setReceptionistSpeaking(false);
+      };
+
+      utterance.onerror = () => {
+        setReceptionistSpeaking(false);
+      };
+
+      setReceptionistSpeaking(true);
+      window.speechSynthesis.speak(utterance);
+    } else {
+      if (receptionistTimeoutRef.current) clearTimeout(receptionistTimeoutRef.current);
+      receptionistTimeoutRef.current = setTimeout(() => {
+        setReceptionistSpeaking(false);
+      }, 3000);
+    }
+  };
+
+  const triggerReceptionistSpeech = async (textToSpeak = "How can I help you today?") => {
+    setReceptionistSubtitle(textToSpeak);
+    setReceptionistSpeaking(true);
+
+    try {
+      const blob = await reframeAPI.speak(textToSpeak);
+      const audioUrl = URL.createObjectURL(blob);
+      
+      if (receptionistAudioRef.current) {
+        receptionistAudioRef.current.pause();
+      }
+
+      const audio = new Audio(audioUrl);
+      receptionistAudioRef.current = audio;
+      
+      audio.onended = () => {
+        setReceptionistSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setReceptionistSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+        fallbackWebSpeech(textToSpeak);
+      };
+
+      audio.play().catch(() => {
+        fallbackWebSpeech(textToSpeak);
+      });
+    } catch (err) {
+      console.error("Backend TTS failed, falling back to Web Speech API:", err);
+      fallbackWebSpeech(textToSpeak);
+    }
+  };
+
+  const playRetroClickSound = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ctx = audioCtxRef.current || new AudioContext();
+      
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(150, ctx.currentTime + 0.1);
+      
+      gainNode.gain.setValueAtTime(0.08, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+      
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {
+      console.warn("Click sound failed to play:", e);
+    }
+  };
+
+  const handleReceptionistChoice = (choiceText) => {
+    console.log("Selected/sent choice:", choiceText);
+    let reply = "I understand. How else can I help?";
+    if (choiceText.toLowerCase().includes("ptsd")) {
+      reply = "Please meet the monk in the temple he has the solution of your problem";
+    } else if (choiceText.toLowerCase().includes("really")) {
+      reply = "I am Mira. I welcome seekers to the Reframe Castle.";
+    } else if (choiceText.toLowerCase().includes("wrong")) {
+      reply = "Be careful. Cognitive distortions haunt these rooms.";
+    } else if (choiceText.toLowerCase().includes("help")) {
+      reply = "To clean your mind, step into the distortion doorways on the left.";
+    }
+    triggerReceptionistSpeech(reply);
+  };
+
+  const handleCanvasClick = (e) => {
+    if (stage !== 'select' || currentRoom !== 'lobby') return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const logicalX = (clickX / rect.width) * 800;
+    const logicalY = (clickY / rect.height) * 600;
+
+    // Check if the click is on the receptionist NPC (X: 170-250, Y: 190-330)
+    if (logicalX >= 170 && logicalX <= 250 && logicalY >= 190 && logicalY <= 330) {
+      triggerReceptionistSpeech();
+    }
+  };
+
+  const handleCanvasMouseMove = (e) => {
+    if (stage !== 'select' || currentRoom !== 'lobby' || !canvasRef.current) {
+      setCanvasCursor('default');
+      return;
+    }
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const logicalX = (mouseX / rect.width) * 800;
+    const logicalY = (mouseY / rect.height) * 600;
+
+    if (logicalX >= 170 && logicalX <= 250 && logicalY >= 190 && logicalY <= 330) {
+      setCanvasCursor('pointer');
+    } else {
+      setCanvasCursor('default');
+    }
+  };
+
   // Canvas collision boundary checker (Enforces hallway boundaries, blocks walking off-map)
   const checkCollision = (newX, newY) => {
     const r = player.current.radius;
@@ -775,6 +989,20 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'lobby') {
+        // Trigger receptionist dialogue automatically when player is near the desk
+        const isNearDesk = player.current.x >= 180 && player.current.x <= 510 && player.current.y <= 340;
+        if (isNearDesk) {
+          if (!hasTriggeredSpeech.current) {
+            setReceptionistDialogueOpen(true);
+            triggerReceptionistSpeech("How can I help you today?");
+            hasTriggeredSpeech.current = true;
+          }
+        } else {
+          // Reset trigger when the player walks away
+          hasTriggeredSpeech.current = false;
+          setReceptionistDialogueOpen(false);
+        }
+
         // Check if player entered one of the lobby doors (leads to a private themed room)
         const enteredRoomType = checkLobbyDoorEncounter(player.current.x, player.current.y);
         if (enteredRoomType) {
@@ -1023,6 +1251,24 @@ const ReframeGame = ({ onExit }) => {
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.fillText("ROOFTOP", 420, 36);
+
+        // Visual speaking indicator (subtle glowing ring around the receptionist)
+        if (receptionistSpeaking) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(45, 212, 191, 0.6)';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = '#2dd4bf';
+          ctx.shadowBlur = 10;
+          ctx.beginPath();
+          ctx.arc(210, 240, 35 + Math.sin(timestamp / 100) * 3, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+
+          // Draw the subtitle speech bubble near the receptionist
+          if (receptionistSubtitle) {
+            drawSpeechBubble(ctx, receptionistSubtitle, 260, 180);
+          }
+        }
       } else if (currentRoom === 'outside') {
         // Outside Courtyard rendering
         if (outsideBgRef.current && outsideBgLoaded) {
@@ -1472,9 +1718,130 @@ const ReframeGame = ({ onExit }) => {
           ref={canvasRef} 
           width={canvasDimensions.width} 
           height={canvasDimensions.height}
-          className="absolute inset-0 block bg-slate-950 cursor-default"
-          style={{ imageRendering: 'pixelated' }}
+          onClick={handleCanvasClick}
+          onMouseMove={handleCanvasMouseMove}
+          className="absolute inset-0 block bg-slate-950"
+          style={{ imageRendering: 'pixelated', cursor: canvasCursor }}
         />
+
+        {/* Receptionist Dialogue Popup Box (Stardew-Valley/Retro dialogue style matching Muthu's design) */}
+        {currentRoom === 'lobby' && receptionistDialogueOpen && (
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-2xl bg-[#1a0e2e] border-4 border-amber-500 text-amber-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
+            
+            {/* Header with Name, Role, Speaker and Leave button */}
+            <div className="flex justify-between items-start border-b-2 border-amber-500/20 pb-2">
+              <div>
+                <h4 className="font-bold text-lg font-pixel-body text-amber-400">Mira</h4>
+                <span className="text-[10px] text-amber-300/80 font-pixel-body">station receptionist</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    triggerReceptionistSpeech(receptionistSubtitle || "How can I help you today?");
+                  }}
+                  className="px-2 py-1 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-amber-200 transition rounded-none font-bold text-sm"
+                  title="Play/Replay audio"
+                >
+                  🔊
+                </button>
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    setReceptionistDialogueOpen(false);
+                  }}
+                  className="px-3 py-1 bg-slate-950 text-white border-2 border-amber-500 font-pixel-body text-[10px] hover:bg-slate-800 transition rounded-none"
+                >
+                  Esc - leave
+                </button>
+              </div>
+            </div>
+
+            {/* Main dialogue speech text (Text is larger) */}
+            <div className="py-1">
+              <p className="text-sm font-semibold leading-relaxed font-pixel-body text-amber-100">
+                "{receptionistSubtitle || "How can I help you today?"}"
+              </p>
+              {receptionistSpeaking && (
+                <span className="text-[9px] text-teal-400 font-bold uppercase tracking-wider animate-pulse mt-2 block font-pixel-body">
+                  &gt; SPEAKING...
+                </span>
+              )}
+            </div>
+
+            {/* Selector Choices (Horizontal list of prompt options, text is larger, different colors) */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t-2 border-amber-500/20">
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleReceptionistChoice("Who are you, really?");
+                }}
+                className="px-3 py-1.5 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                1. Who are you, really?
+              </button>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleReceptionistChoice("Something's wrong here. Talk.");
+                }}
+                className="px-3 py-1.5 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                2. Something's wrong here. Talk.
+              </button>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleReceptionistChoice("I need your help.");
+                }}
+                className="px-3 py-1.5 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                3. I need your help.
+              </button>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleReceptionistChoice("I'm suffering from PTSD");
+                }}
+                className="px-3 py-1.5 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                4. I'm suffering from PTSD
+              </button>
+            </div>
+
+            {/* Chat message submission input field */}
+            <div className="flex gap-2 mt-1">
+              <input 
+                type="text"
+                placeholder="Say anything to Mira..."
+                className="flex-1 bg-[#2a1740] border-2 border-amber-500 px-3 py-1.5 text-xs font-pixel-body focus:outline-none rounded-none text-amber-100 placeholder:text-amber-300/40"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (e.target.value.trim()) {
+                      playRetroClickSound();
+                      handleReceptionistChoice(e.target.value.trim());
+                      e.target.value = '';
+                    }
+                  }
+                }}
+              />
+              <button 
+                onClick={(e) => {
+                  const input = e.target.previousSibling;
+                  if (input.value.trim()) {
+                    playRetroClickSound();
+                    handleReceptionistChoice(input.value.trim());
+                    input.value = '';
+                  }
+                }}
+                className="px-4 bg-[#2e1a47] text-amber-200 border-2 border-amber-500 text-xs font-bold font-pixel-body hover:bg-[#3f2560] rounded-none transition"
+              >
+                SEND
+              </button>
+            </div>
+
+          </div>
+        )}
 
         {/* Closeable Legend & HUD Panel (Bottom-Left) */}
         {showLegend ? (
