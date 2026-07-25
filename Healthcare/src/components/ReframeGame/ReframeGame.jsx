@@ -135,6 +135,39 @@ const makeImageTransparent = (imgUrl) => {
   });
 };
 
+const makeBlackTransparent = (imgUrl) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        const data = imgData.data;
+        for (let i = 0; i < data.length; i += 4) {
+          // Check if R, G, B are all dark (near black background)
+          if (data[i] < 20 && data[i+1] < 20 && data[i+2] < 20) {
+            data[i+3] = 0; // Make transparent
+          }
+        }
+        
+        ctx.putImageData(imgData, 0, 0);
+        resolve(canvas.toDataURL());
+      } catch (e) {
+        console.error("Black transparency filter error:", e);
+        resolve(imgUrl);
+      }
+    };
+    img.onerror = () => resolve(imgUrl);
+    img.src = imgUrl;
+  });
+};
+
 const drawSpeechBubble = (ctx, text, x, y) => {
   ctx.save();
   // Bubble body
@@ -236,6 +269,11 @@ const ReframeGame = ({ onExit }) => {
   // Themed private rooms image refs
   const roomBgImagesRef = useRef({});
   const [roomBgsLoaded, setRoomBgsLoaded] = useState(false);
+
+  // Indian King sprite ref
+  const kingSpriteRef = useRef(null);
+  const [kingSpriteLoaded, setKingSpriteLoaded] = useState(false);
+  const [processedKingSprite, setProcessedKingSprite] = useState(null);
 
   // Rain weather particles reference
   const rainParticles = useRef([]);
@@ -636,6 +674,24 @@ const ReframeGame = ({ onExit }) => {
         }
       };
     }
+
+    // Load Indian King sprite for Black and White room
+    const kingImgUrl = "/sprite_indian_king.png";
+    makeBlackTransparent(kingImgUrl)
+      .then((src) => {
+        setProcessedKingSprite(src);
+        const img = new Image();
+        img.src = src;
+        kingSpriteRef.current = img;
+        setKingSpriteLoaded(true);
+      })
+      .catch(() => {
+        setProcessedKingSprite(kingImgUrl);
+        const img = new Image();
+        img.src = kingImgUrl;
+        kingSpriteRef.current = img;
+        setKingSpriteLoaded(true);
+      });
   }, []);
 
   // Pre-process player (depressed bearded man) sprite
