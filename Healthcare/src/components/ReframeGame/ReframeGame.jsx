@@ -586,8 +586,15 @@ const ReframeGame = ({ onExit }) => {
       }
     } else if (currentRoom === 'distortion_room') {
       // Keeps the player inside the private distortion room walls
-      if (newX - r < 60 || newX + r > 740 || newY - r < 60 || newY + r > 540) {
-        return true;
+      // For catastrophizing room, allow walking down into the bottom archway (X between 410 and 550, Y up to 570)
+      if (selectedType === 'catastrophizing' && newX >= 410 && newX <= 550) {
+        if (newX - r < 60 || newX + r > 740 || newY - r < 60 || newY + r > 570) {
+          return true;
+        }
+      } else {
+        if (newX - r < 60 || newX + r > 740 || newY - r < 60 || newY + r > 540) {
+          return true;
+        }
       }
     } else if (currentRoom === 'outside') {
       // Courtyard horizontal & bottom bounds (wider scope to allow steps sides X=70 to 730)
@@ -764,9 +771,15 @@ const ReframeGame = ({ onExit }) => {
         if (enteredRoomType) {
           setSelectedType(enteredRoomType);
           setCurrentRoom('distortion_room');
-          // Spawn player inside the top-left arched doorway alcove safely below the trigger line
-          player.current.x = 190;
-          player.current.y = 175;
+          if (enteredRoomType === 'catastrophizing') {
+            // Spawn player inside the bottom archway safely above the exit trigger
+            player.current.x = 480;
+            player.current.y = 490;
+          } else {
+            // Spawn player inside the top-left arched doorway alcove safely below the trigger line
+            player.current.x = 190;
+            player.current.y = 175;
+          }
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -797,8 +810,12 @@ const ReframeGame = ({ onExit }) => {
         }
       } else if (currentRoom === 'distortion_room') {
         // Stepped onto Lobby return door in private room (top-left arched doorway arch center X=190, Y=140)
-        // Trigger transition if Y is inside the alcove (<= 160) and X is within [140, 240]
-        if (player.current.y <= 160 && player.current.x >= 140 && player.current.x <= 240) {
+        // For catastrophizing room, exit is through the bottom archway (X: [410, 550], Y >= 540)
+        const isExiting = selectedType === 'catastrophizing'
+          ? (player.current.y >= 540 && player.current.x >= 410 && player.current.x <= 550)
+          : (player.current.y <= 160 && player.current.x >= 140 && player.current.x <= 240);
+
+        if (isExiting) {
           setCurrentRoom('lobby');
           // Spawn player right in front of the door they just came out of (safely inside walkable bounds)
           if (selectedType === 'catastrophizing') { player.current.x = 240; player.current.y = 300; }
@@ -1152,7 +1169,11 @@ const ReframeGame = ({ onExit }) => {
         ctx.fillStyle = '#ffffff';
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.fillText("LOBBY EXIT", 190, 150);
+        if (selectedType === 'catastrophizing') {
+          ctx.fillText("LOBBY EXIT", 480, 520);
+        } else {
+          ctx.fillText("LOBBY EXIT", 190, 150);
+        }
 
         ctx.fillStyle = '#2dd4bf';
         ctx.font = '12px "Press Start 2P"';
