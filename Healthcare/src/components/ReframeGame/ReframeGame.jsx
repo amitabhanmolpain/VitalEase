@@ -206,6 +206,7 @@ const ReframeGame = ({ onExit }) => {
   const lastTime = useRef(0);
   const flashAlpha = useRef(0);
   const lastThunderTime = useRef(0);
+  const transitionAlpha = useRef(0);
   const chatEndRef = useRef(null);
 
   // Dynamic window resize handler for full screen selection
@@ -360,6 +361,11 @@ const ReframeGame = ({ onExit }) => {
     mediaQuery.addEventListener('change', listener);
     return () => mediaQuery.removeEventListener('change', listener);
   }, []);
+
+  // Trigger screen fade transition on room change
+  useEffect(() => {
+    transitionAlpha.current = 1.0;
+  }, [currentRoom]);
 
   // Fetch distortion types on load
   useEffect(() => {
@@ -670,9 +676,9 @@ const ReframeGame = ({ onExit }) => {
         if (up || left) { dx -= 1; dy -= 0.6; }
         if (down || right) { dx += 1; dy += 0.6; }
       } else if (currentRoom === 'outside' && player.current.x >= 70 && player.current.x <= 160 && player.current.y <= 410) {
-        // Left Wing stairs incline: UP/RIGHT goes right/up, DOWN/LEFT goes left/down
-        if (up || right) { dx += 1; dy -= 1.2; }
-        if (down || left) { dx -= 1; dy += 1.2; }
+        // Left Wing stairs incline: UP/LEFT goes left/up, DOWN/RIGHT goes right/down
+        if (up || left) { dx -= 1; dy -= 1.2; }
+        if (down || right) { dx += 1; dy += 1.2; }
       } else if (currentRoom === 'outside' && player.current.x >= 540 && player.current.x <= 630 && player.current.y <= 410) {
         // Temple stairs incline: UP/RIGHT goes right/up, DOWN/LEFT goes left/down (same as Left Wing steps)
         if (up || right) { dx += 1; dy -= 1.2; }
@@ -703,7 +709,7 @@ const ReframeGame = ({ onExit }) => {
         player.current.y = 460 - (240 - player.current.x) * 0.6;
       } else if (currentRoom === 'outside') {
         if (player.current.x >= 70 && player.current.x <= 160 && player.current.y <= 410) {
-          player.current.y = 410 - (player.current.x - 70) * 1.2;
+          player.current.y = 410 - (160 - player.current.x) * 1.2;
         } else if (player.current.x >= 540 && player.current.x <= 630 && player.current.y <= 410) {
           player.current.y = 410 - (player.current.x - 540) * 1.2;
         }
@@ -712,6 +718,11 @@ const ReframeGame = ({ onExit }) => {
       // Decay lightning flash
       if (flashAlpha.current > 0) {
         flashAlpha.current = Math.max(0, flashAlpha.current - dt * 2.0);
+      }
+
+      // Decay transition overlay fade
+      if (transitionAlpha.current > 0) {
+        transitionAlpha.current = Math.max(0, transitionAlpha.current - dt * 2.0);
       }
 
       // Occasionally trigger procedural lightning strike (only when outdoors: rooftop or outside)
@@ -799,16 +810,16 @@ const ReframeGame = ({ onExit }) => {
         // Enters Hotel Lobby door (centered at X: [450, 550], Y <= 390)
         if (player.current.y <= 390 && player.current.x >= 450 && player.current.x <= 550) {
           setCurrentRoom('lobby');
-          // Spawn safely on the Lobby floor rug (safely below walls)
-          player.current.x = 500;
-          player.current.y = 200;
+          // Spawn safely near the bottom exit door of the Lobby
+          player.current.x = 420;
+          player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
  
-        // Enters Left Wing palace building at the top of Left Wing stairs (X: [140, 170], Y <= 325)
-        if (player.current.y <= 325 && player.current.x >= 140 && player.current.x <= 170) {
+        // Enters Left Wing palace building at the top of Left Wing stairs (X: [60, 90], Y <= 325)
+        if (player.current.y <= 325 && player.current.x >= 60 && player.current.x <= 90) {
           setCurrentRoom('left_wing');
           // Spawn inside the Left Wing building lobby
           player.current.x = 400;
@@ -861,7 +872,7 @@ const ReframeGame = ({ onExit }) => {
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('outside');
           // Spawn player slightly down the Left Wing stairs in the courtyard to prevent instant re-entry loop
-          player.current.x = 135;
+          player.current.x = 95;
           player.current.y = 310;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
@@ -1269,6 +1280,12 @@ const ReframeGame = ({ onExit }) => {
         ctx.textAlign = 'center';
         ctx.fillText(lockAlertText, 400, 46);
         ctx.restore();
+      }
+
+      // Draw screen transition fade overlay
+      if (transitionAlpha.current > 0) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${transitionAlpha.current})`;
+        ctx.fillRect(0, 0, 800, 600);
       }
 
       // Restore scaling context
