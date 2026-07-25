@@ -1457,6 +1457,19 @@ const ReframeGame = ({ onExit }) => {
           </button>
         )}
 
+        {/* Hidden YouTube Iframe player for background music in Lobby */}
+        {currentRoom === 'lobby' && (
+          <iframe
+            width="1"
+            height="1; autoplay"
+            src="https://www.youtube.com/embed/g-O3ZVNKZLY?autoplay=1&loop=1&playlist=g-O3ZVNKZLY"
+            title="Lobby Music"
+            frameBorder="0"
+            allow="autoplay; encrypted-media"
+            className="absolute pointer-events-none opacity-0 invisible"
+          />
+        )}
+
       </div>
     );
   }
