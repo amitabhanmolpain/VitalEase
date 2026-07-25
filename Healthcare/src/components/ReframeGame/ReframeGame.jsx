@@ -261,6 +261,12 @@ const ReframeGame = ({ onExit }) => {
   const lobbyMusicPlayerRef = useRef(null);
   const lobbyMusicContainerRef = useRef(null);
 
+  // Monk NPC States
+  const [monkDialogueOpen, setMonkDialogueOpen] = useState(false);
+  const [monkSpeaking, setMonkSpeaking] = useState(false);
+  const [monkSubtitle, setMonkSubtitle] = useState("");
+  const hasTriggeredMonkSpeech = useRef(false);
+
   useEffect(() => {
     if (!window.YT) {
       const tag = document.createElement('script');
@@ -740,37 +746,7 @@ const ReframeGame = ({ onExit }) => {
 
   const triggerReceptionistSpeech = async (textToSpeak = "How can I help you today?") => {
     setReceptionistSubtitle(textToSpeak);
-    setReceptionistSpeaking(true);
-
-    try {
-      const blob = await reframeAPI.speak(textToSpeak);
-      const audioUrl = URL.createObjectURL(blob);
-      
-      if (receptionistAudioRef.current) {
-        receptionistAudioRef.current.pause();
-      }
-
-      const audio = new Audio(audioUrl);
-      receptionistAudioRef.current = audio;
-      
-      audio.onended = () => {
-        setReceptionistSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      audio.onerror = () => {
-        setReceptionistSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-        fallbackWebSpeech(textToSpeak);
-      };
-
-      audio.play().catch(() => {
-        fallbackWebSpeech(textToSpeak);
-      });
-    } catch (err) {
-      console.error("Backend TTS failed, falling back to Web Speech API:", err);
-      fallbackWebSpeech(textToSpeak);
-    }
+    fallbackWebSpeech(textToSpeak);
   };
 
   const playRetroClickSound = () => {
@@ -805,14 +781,18 @@ const ReframeGame = ({ onExit }) => {
       
       const getMaleVoice = () => {
         const voices = window.speechSynthesis.getVoices();
-        // Specifically look for English (en) male voices, and exclude female voices
-        return voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male'))
+        // Specifically look for English (GB) male voices to sound British, and exclude female voices
+        return voices.find(v => v.lang.includes('GB') && v.name.toLowerCase().includes('male'))
+            || voices.find(v => v.lang.startsWith('en') && v.lang.includes('GB'))
+            || voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male') && !v.name.toLowerCase().includes('india') && !v.name.toLowerCase().includes('google'))
             || voices.find(v => v.name.toLowerCase().includes('male'))
-            || voices.find(v => v.lang.startsWith('en') && !v.name.toLowerCase().includes('female'))
             || voices[0];
       };
 
       utterance.voice = getMaleVoice();
+      utterance.rate = 1.0;  // Normal conversational speed
+      utterance.pitch = 1.15; // Youthful and clear male pitch (distinct from deep monk)
+
       utterance.onend = () => {
         setPlayerSpeaking(false);
         if (onEnd) onEnd();
@@ -836,41 +816,7 @@ const ReframeGame = ({ onExit }) => {
 
   const triggerPlayerSpeech = async (textToSpeak, onEnd) => {
     setReceptionistSubtitle(textToSpeak);
-    setPlayerSpeaking(true);
-
-    try {
-      const blob = await reframeAPI.speak(
-        textToSpeak, 
-        "A British man speaks in a warm, clear English tone. The recording is of very high quality with no background noise."
-      );
-      const audioUrl = URL.createObjectURL(blob);
-      
-      if (receptionistAudioRef.current) {
-        receptionistAudioRef.current.pause();
-      }
-
-      const audio = new Audio(audioUrl);
-      receptionistAudioRef.current = audio;
-      
-      audio.onended = () => {
-        setPlayerSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-        if (onEnd) onEnd();
-      };
-      
-      audio.onerror = () => {
-        setPlayerSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-        fallbackPlayerWebSpeech(textToSpeak, onEnd);
-      };
-
-      audio.play().catch(() => {
-        fallbackPlayerWebSpeech(textToSpeak, onEnd);
-      });
-    } catch (err) {
-      console.error("Player TTS failed, falling back to Web Speech:", err);
-      fallbackPlayerWebSpeech(textToSpeak, onEnd);
-    }
+    fallbackPlayerWebSpeech(textToSpeak, onEnd);
   };
 
   const handleReceptionistChoice = (choiceText) => {
@@ -892,8 +838,66 @@ const ReframeGame = ({ onExit }) => {
     });
   };
 
+  const fallbackMonkWebSpeech = (textToSpeak = "What do you want?") => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      
+      const getIndianMaleVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        return voices.find(v => v.name.toLowerCase().includes('google') && v.name.toLowerCase().includes('english') && v.name.toLowerCase().includes('male'))
+            || voices.find(v => v.name.toLowerCase().includes('natural') && v.name.toLowerCase().includes('male'))
+            || voices.find(v => v.lang === 'en-IN' && v.name.toLowerCase().includes('google') && v.name.toLowerCase().includes('male'))
+            || voices.find(v => (v.lang === 'en-IN' || v.lang === 'hi-IN') && v.name.toLowerCase().includes('male'))
+            || voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('male'))
+            || voices.find(v => v.name.toLowerCase().includes('male'))
+            || voices[0];
+      };
+
+      utterance.voice = getIndianMaleVoice();
+      utterance.rate = 0.72; // Meditative, highly deliberate slow pacing (Monk signature)
+      utterance.pitch = 0.82; // Deeper, calm, and resonant tone (guarantees no mixup with player)
+
+      utterance.onend = () => {
+        setMonkSpeaking(false);
+      };
+      utterance.onerror = () => {
+        setMonkSpeaking(false);
+      };
+      setMonkSpeaking(true);
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+      }, 50);
+    } else {
+      setMonkSpeaking(true);
+      setTimeout(() => {
+        setMonkSpeaking(false);
+      }, 3000);
+    }
+  };
+
+  const triggerMonkSpeech = async (textToSpeak = "What do you want?") => {
+    setMonkSubtitle(textToSpeak);
+    fallbackMonkWebSpeech(textToSpeak);
+  };
+
+  const handleMonkChoice = (choiceText) => {
+    console.log("Selected monk choice:", choiceText);
+    let reply = "I understand. How else can I help?";
+    if (choiceText.toLowerCase().includes("ptsd")) {
+      reply = "Do meditation for 30 secs with me.";
+    } else if (choiceText.toLowerCase().includes("anxious") || choiceText.toLowerCase().includes("anxiety")) {
+      reply = "Go to the 2nd floor and do breathing exercise.";
+    }
+
+    setMonkSpeaking(false);
+    triggerPlayerSpeech(choiceText, () => {
+      triggerMonkSpeech(reply);
+    });
+  };
+
   const handleCanvasClick = (e) => {
-    if (stage !== 'select' || currentRoom !== 'lobby') return;
+    if (stage !== 'select') return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -902,14 +906,19 @@ const ReframeGame = ({ onExit }) => {
     const logicalX = (clickX / rect.width) * 800;
     const logicalY = (clickY / rect.height) * 600;
 
-    // Check if the click is on the receptionist NPC (X: 170-250, Y: 190-330)
-    if (logicalX >= 170 && logicalX <= 250 && logicalY >= 190 && logicalY <= 330) {
-      triggerReceptionistSpeech();
+    if (currentRoom === 'lobby') {
+      if (logicalX >= 170 && logicalX <= 250 && logicalY >= 190 && logicalY <= 330) {
+        triggerReceptionistSpeech();
+      }
+    } else if (currentRoom === 'temple_floor_1') {
+      if (logicalX >= 200 && logicalX <= 320 && logicalY >= 440 && logicalY <= 540) {
+        triggerMonkSpeech();
+      }
     }
   };
 
   const handleCanvasMouseMove = (e) => {
-    if (stage !== 'select' || currentRoom !== 'lobby' || !canvasRef.current) {
+    if (stage !== 'select' || !canvasRef.current) {
       setCanvasCursor('default');
       return;
     }
@@ -919,11 +928,18 @@ const ReframeGame = ({ onExit }) => {
     const logicalX = (mouseX / rect.width) * 800;
     const logicalY = (mouseY / rect.height) * 600;
 
-    if (logicalX >= 170 && logicalX <= 250 && logicalY >= 190 && logicalY <= 330) {
-      setCanvasCursor('pointer');
-    } else {
-      setCanvasCursor('default');
+    if (currentRoom === 'lobby') {
+      if (logicalX >= 170 && logicalX <= 250 && logicalY >= 190 && logicalY <= 330) {
+        setCanvasCursor('pointer');
+        return;
+      }
+    } else if (currentRoom === 'temple_floor_1') {
+      if (logicalX >= 200 && logicalX <= 320 && logicalY >= 440 && logicalY <= 540) {
+        setCanvasCursor('pointer');
+        return;
+      }
     }
+    setCanvasCursor('default');
   };
 
   // Canvas collision boundary checker (Enforces hallway boundaries, blocks walking off-map)
@@ -1311,6 +1327,19 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'temple_floor_1') {
+        // Trigger monk dialogue automatically when player is anywhere on the temple floor (Monk)
+        const isNearMonk = player.current.x >= 150 && player.current.x <= 700 && player.current.y >= 400 && player.current.y <= 500;
+        if (isNearMonk) {
+          if (!hasTriggeredMonkSpeech.current) {
+            setMonkDialogueOpen(true);
+            triggerMonkSpeech("What do you want?");
+            hasTriggeredMonkSpeech.current = true;
+          }
+        } else {
+          hasTriggeredMonkSpeech.current = false;
+          setMonkDialogueOpen(false);
+        }
+
         // Stepped onto exit door in Temple Floor 1 (bottom center X: [350, 450], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('outside');
@@ -1987,6 +2016,115 @@ const ReframeGame = ({ onExit }) => {
                   }
                 }}
                 className="px-4 bg-[#2e1a47] text-amber-200 border-2 border-amber-500 text-xs font-bold font-pixel-body hover:bg-[#3f2560] rounded-none transition"
+              >
+                SEND
+              </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* Monk Dialogue Popup Box (Sacred Temple crimson/gold style matching the temple room) */}
+        {currentRoom === 'temple_floor_1' && monkDialogueOpen && (
+          <div className="absolute bottom-6 right-6 w-full max-w-md bg-[#2d0f0f] border-4 border-amber-500 text-amber-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
+            
+            {/* Header with Name, Role, Speaker and Leave button */}
+            <div className="flex justify-between items-start border-b-2 border-amber-500/20 pb-2">
+              <div>
+                <h4 className="font-bold text-lg font-pixel-body text-amber-400">
+                  {playerSpeaking ? "You" : "Monk"}
+                </h4>
+                <span className="text-[10px] text-amber-300/80 font-pixel-body">
+                  {playerSpeaking ? "seeker" : "temple monk"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    if (playerSpeaking) {
+                      triggerPlayerSpeech(monkSubtitle);
+                    } else {
+                      triggerMonkSpeech(monkSubtitle || "What do you want?");
+                    }
+                  }}
+                  className="px-2 py-1 bg-[#451414] border-2 border-amber-500 hover:bg-[#5c1a1a] text-amber-200 transition rounded-none font-bold text-sm"
+                  title="Play/Replay audio"
+                >
+                  🔊
+                </button>
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    setMonkDialogueOpen(false);
+                  }}
+                  className="px-3 py-1 bg-slate-950 text-white border-2 border-amber-500 font-pixel-body text-[10px] hover:bg-slate-800 transition rounded-none"
+                >
+                  Esc - leave
+                </button>
+              </div>
+            </div>
+
+            {/* Main dialogue speech text */}
+            <div className="py-1">
+              <p className="text-sm font-semibold leading-relaxed font-pixel-body text-amber-100">
+                "{monkSubtitle || "What do you want?"}"
+              </p>
+              {(monkSpeaking || playerSpeaking) && (
+                <span className="text-[9px] text-teal-400 font-bold uppercase tracking-wider animate-pulse mt-2 block font-pixel-body">
+                  &gt; SPEAKING...
+                </span>
+              )}
+            </div>
+
+            {/* Selector Choices */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t-2 border-amber-500/20">
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleMonkChoice("I'm suffering from PTSD");
+                }}
+                className="px-3 py-1.5 bg-[#451414] border-2 border-amber-500 hover:bg-[#5c1a1a] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                1. I'm suffering from PTSD
+              </button>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleMonkChoice("I'm feeling anxious");
+                }}
+                className="px-3 py-1.5 bg-[#451414] border-2 border-amber-500 hover:bg-[#5c1a1a] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                2. I'm feeling anxious
+              </button>
+            </div>
+
+            {/* Chat message submission input field */}
+            <div className="flex gap-2 mt-1">
+              <input 
+                type="text"
+                placeholder="Say anything to Monk..."
+                className="flex-1 bg-[#360e0e] border-2 border-amber-500 px-3 py-1.5 text-xs font-pixel-body focus:outline-none rounded-none text-amber-100 placeholder:text-amber-300/40"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (e.target.value.trim()) {
+                      playRetroClickSound();
+                      handleMonkChoice(e.target.value.trim());
+                      e.target.value = '';
+                    }
+                  }
+                }}
+              />
+              <button 
+                onClick={(e) => {
+                  const input = e.target.previousSibling;
+                  if (input.value.trim()) {
+                    playRetroClickSound();
+                    handleMonkChoice(input.value.trim());
+                    input.value = '';
+                  }
+                }}
+                className="px-4 bg-[#451414] text-amber-200 border-2 border-amber-500 text-xs font-bold font-pixel-body hover:bg-[#5c1a1a] rounded-none transition"
               >
                 SEND
               </button>
