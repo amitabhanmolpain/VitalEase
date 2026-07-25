@@ -139,6 +139,7 @@ const ReframeGame = ({ onExit }) => {
   
   // Legend HUD box control
   const [showLegend, setShowLegend] = useState(true);
+  const [showMap, setShowMap] = useState(false);
 
   // Retro Sprite States
   const [processedSprites, setProcessedSprites] = useState({});
@@ -206,6 +207,7 @@ const ReframeGame = ({ onExit }) => {
   const lastTime = useRef(0);
   const flashAlpha = useRef(0);
   const lastThunderTime = useRef(0);
+  const transitionAlpha = useRef(0);
   const chatEndRef = useRef(null);
 
   // Dynamic window resize handler for full screen selection
@@ -360,6 +362,11 @@ const ReframeGame = ({ onExit }) => {
     mediaQuery.addEventListener('change', listener);
     return () => mediaQuery.removeEventListener('change', listener);
   }, []);
+
+  // Trigger screen fade transition on room change
+  useEffect(() => {
+    transitionAlpha.current = 1.0;
+  }, [currentRoom]);
 
   // Fetch distortion types on load
   useEffect(() => {
@@ -617,8 +624,19 @@ const ReframeGame = ({ onExit }) => {
       currentRoom === 'left_wing_floor_2' ||
       currentRoom === 'left_wing_floor_3'
     ) {
-      // General interior room bounds
-      if (newX - r < 100 || newX + r > 700 || newY - r < 100 || newY + r > 540) {
+      // Horizontal bounds: X must be inside [100, 700]
+      if (newX - r < 100 || newX + r > 700) {
+        return true;
+      }
+      // Bottom bounds: Y cannot exceed 540
+      if (newY + r > 540) {
+        return true;
+      }
+
+      // Room-specific top (minY) bounds to restrict flying on walls/pillars
+      let minY = 410; // Default floor line
+
+      if (newY - r < minY) {
         return true;
       }
     }
@@ -670,9 +688,9 @@ const ReframeGame = ({ onExit }) => {
         if (up || left) { dx -= 1; dy -= 0.6; }
         if (down || right) { dx += 1; dy += 0.6; }
       } else if (currentRoom === 'outside' && player.current.x >= 70 && player.current.x <= 160 && player.current.y <= 410) {
-        // Left Wing stairs incline: UP/RIGHT goes right/up, DOWN/LEFT goes left/down
-        if (up || right) { dx += 1; dy -= 1.2; }
-        if (down || left) { dx -= 1; dy += 1.2; }
+        // Left Wing stairs incline: UP/LEFT goes left/up, DOWN/RIGHT goes right/down
+        if (up || left) { dx -= 1; dy -= 1.2; }
+        if (down || right) { dx += 1; dy += 1.2; }
       } else if (currentRoom === 'outside' && player.current.x >= 540 && player.current.x <= 630 && player.current.y <= 410) {
         // Temple stairs incline: UP/RIGHT goes right/up, DOWN/LEFT goes left/down (same as Left Wing steps)
         if (up || right) { dx += 1; dy -= 1.2; }
@@ -703,7 +721,7 @@ const ReframeGame = ({ onExit }) => {
         player.current.y = 460 - (240 - player.current.x) * 0.6;
       } else if (currentRoom === 'outside') {
         if (player.current.x >= 70 && player.current.x <= 160 && player.current.y <= 410) {
-          player.current.y = 410 - (player.current.x - 70) * 1.2;
+          player.current.y = 410 - (160 - player.current.x) * 1.2;
         } else if (player.current.x >= 540 && player.current.x <= 630 && player.current.y <= 410) {
           player.current.y = 410 - (player.current.x - 540) * 1.2;
         }
@@ -712,6 +730,11 @@ const ReframeGame = ({ onExit }) => {
       // Decay lightning flash
       if (flashAlpha.current > 0) {
         flashAlpha.current = Math.max(0, flashAlpha.current - dt * 2.0);
+      }
+
+      // Decay transition overlay fade
+      if (transitionAlpha.current > 0) {
+        transitionAlpha.current = Math.max(0, transitionAlpha.current - dt * 2.0);
       }
 
       // Occasionally trigger procedural lightning strike (only when outdoors: rooftop or outside)
@@ -741,9 +764,9 @@ const ReframeGame = ({ onExit }) => {
         if (enteredRoomType) {
           setSelectedType(enteredRoomType);
           setCurrentRoom('distortion_room');
-          // Spawn player in the center of the private distortion room safely
-          player.current.x = 400;
-          player.current.y = 350;
+          // Spawn player inside the top-left arched doorway alcove safely below the trigger line
+          player.current.x = 190;
+          player.current.y = 175;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -773,9 +796,9 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'distortion_room') {
-        // Stepped onto Lobby return door in private room (bottom-center ornate archway center X=490, Y=540)
-        // Trigger transition if Y is near the bottom (> 510) and X is within the door [350, 630]
-        if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 630) {
+        // Stepped onto Lobby return door in private room (top-left arched doorway arch center X=190, Y=140)
+        // Trigger transition if Y is inside the alcove (<= 160) and X is within [140, 240]
+        if (player.current.y <= 160 && player.current.x >= 140 && player.current.x <= 240) {
           setCurrentRoom('lobby');
           // Spawn player right in front of the door they just came out of (safely inside walkable bounds)
           if (selectedType === 'catastrophizing') { player.current.x = 240; player.current.y = 300; }
@@ -799,16 +822,16 @@ const ReframeGame = ({ onExit }) => {
         // Enters Hotel Lobby door (centered at X: [450, 550], Y <= 390)
         if (player.current.y <= 390 && player.current.x >= 450 && player.current.x <= 550) {
           setCurrentRoom('lobby');
-          // Spawn safely on the Lobby floor rug (safely below walls)
-          player.current.x = 500;
-          player.current.y = 200;
+          // Spawn safely near the bottom exit door of the Lobby
+          player.current.x = 420;
+          player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
  
-        // Enters Left Wing palace building at the top of Left Wing stairs (X: [140, 170], Y <= 325)
-        if (player.current.y <= 325 && player.current.x >= 140 && player.current.x <= 170) {
+        // Enters Left Wing palace building at the top of Left Wing stairs (X: [60, 90], Y <= 325)
+        if (player.current.y <= 325 && player.current.x >= 60 && player.current.x <= 90) {
           setCurrentRoom('left_wing');
           // Spawn inside the Left Wing building lobby
           player.current.x = 400;
@@ -837,8 +860,8 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'left_wing') {
-        // Left Door to Palace Suite Bedroom (top left X: [80, 180], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 80 && player.current.x <= 180) {
+        // Left Door to Palace Suite Bedroom (left wall X <= 175, Y: [430, 490])
+        if (player.current.x <= 175 && player.current.y >= 430 && player.current.y <= 490) {
           setCurrentRoom('left_wing_floor_2');
           player.current.x = 400;
           player.current.y = 480;
@@ -847,8 +870,8 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
 
-        // Right Door to Royal Library (top right X: [600, 700], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 600 && player.current.x <= 700) {
+        // Right Door to Royal Library (right wall X >= 625, Y: [430, 490])
+        if (player.current.x >= 625 && player.current.y >= 430 && player.current.y <= 490) {
           setCurrentRoom('left_wing_floor_3');
           player.current.x = 400;
           player.current.y = 480;
@@ -861,7 +884,7 @@ const ReframeGame = ({ onExit }) => {
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('outside');
           // Spawn player slightly down the Left Wing stairs in the courtyard to prevent instant re-entry loop
-          player.current.x = 135;
+          player.current.x = 95;
           player.current.y = 310;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
@@ -871,9 +894,9 @@ const ReframeGame = ({ onExit }) => {
         // Exit back to Left Wing Lobby (bottom center X: [350, 450], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('left_wing');
-          // Spawn in front of the Palace Suite door in Left Wing Lobby
-          player.current.x = 130;
-          player.current.y = 140;
+          // Spawn in front of the Palace Suite door in Left Wing Lobby (safely on the floor)
+          player.current.x = 200;
+          player.current.y = 460;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -882,9 +905,9 @@ const ReframeGame = ({ onExit }) => {
         // Exit back to Left Wing Lobby (bottom center X: [350, 450], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('left_wing');
-          // Spawn in front of the Library door in Left Wing Lobby
-          player.current.x = 650;
-          player.current.y = 140;
+          // Spawn in front of the Library door in Left Wing Lobby (safely on the floor)
+          player.current.x = 600;
+          player.current.y = 460;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -901,23 +924,23 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
 
-        // Stepped onto stairs to Floor 2 (top left X: [100, 180], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 100 && player.current.x <= 180) {
+        // Stepped onto stairs to Floor 2 (bottom left X: [100, 180], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 100 && player.current.x <= 180) {
           setCurrentRoom('temple_floor_2');
-          // Spawn player at bottom-left stairs landing on Floor 2
-          player.current.x = 140;
-          player.current.y = 450;
+          // Spawn player on Floor 2 at the top of the stone stairs (safely on the walkway)
+          player.current.x = 450;
+          player.current.y = 485;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
       } else if (currentRoom === 'temple_floor_2') {
-        // Stepped onto stairs to Floor 1 (bottom left X: [100, 180], Y > 510)
-        if (player.current.y > 510 && player.current.x >= 100 && player.current.x <= 180) {
+        // Stepped onto stairs to Floor 1 (bottom center X: [350, 550], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 550) {
           setCurrentRoom('temple_floor_1');
-          // Spawn player at top-left stairs landing on Floor 1
+          // Spawn player at bottom-left stairs landing on Floor 1
           player.current.x = 140;
-          player.current.y = 140;
+          player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -1064,7 +1087,7 @@ const ReframeGame = ({ onExit }) => {
         ctx.fillStyle = '#ffffff';
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.fillText("UP TO FLOOR 2", 140, 130);
+        ctx.fillText("UP TO FLOOR 2", 140, 500);
         ctx.fillText("EXIT", 400, 530);
       } else if (currentRoom === 'temple_floor_2') {
         // Temple Floor 2 interior rendering
@@ -1078,7 +1101,7 @@ const ReframeGame = ({ onExit }) => {
         ctx.fillStyle = '#ffffff';
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.fillText("DOWN TO FLOOR 1", 140, 530);
+        ctx.fillText("DOWN TO FLOOR 1", 450, 520);
 
         // Draw custom padlock vector and locked label on right arch doorway
         ctx.fillStyle = '#f43f5e'; // red locked text
@@ -1129,7 +1152,7 @@ const ReframeGame = ({ onExit }) => {
         ctx.fillStyle = '#ffffff';
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.fillText("LOBBY EXIT", 490, 545);
+        ctx.fillText("LOBBY EXIT", 190, 150);
 
         ctx.fillStyle = '#2dd4bf';
         ctx.font = '12px "Press Start 2P"';
@@ -1269,6 +1292,12 @@ const ReframeGame = ({ onExit }) => {
         ctx.textAlign = 'center';
         ctx.fillText(lockAlertText, 400, 46);
         ctx.restore();
+      }
+
+      // Draw screen transition fade overlay
+      if (transitionAlpha.current > 0) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${transitionAlpha.current})`;
+        ctx.fillRect(0, 0, 800, 600);
       }
 
       // Restore scaling context
@@ -1438,6 +1467,113 @@ const ReframeGame = ({ onExit }) => {
           >
             HELP / LEGEND
           </button>
+        )}
+
+        {/* Hidden YouTube Iframe player for background music in Lobby */}
+        {currentRoom === 'lobby' && (
+          <iframe
+            width="1"
+            height="1; autoplay"
+            src="https://www.youtube.com/embed/g-O3ZVNKZLY?autoplay=1&loop=1&playlist=g-O3ZVNKZLY"
+            title="Lobby Music"
+            frameBorder="0"
+            allow="autoplay; encrypted-media"
+            className="absolute pointer-events-none opacity-0 invisible"
+          />
+        )}
+
+        {/* Hidden YouTube Iframe player for background music in Temple (Floor 1 & Floor 2) */}
+        {(currentRoom === 'temple_floor_1' || currentRoom === 'temple_floor_2') && (
+          <iframe
+            width="1"
+            height="1; autoplay"
+            src="https://www.youtube.com/embed/8sYK7lm3UKg?autoplay=1&loop=1&playlist=8sYK7lm3UKg"
+            title="Temple Music"
+            frameBorder="0"
+            allow="autoplay; encrypted-media"
+            className="absolute pointer-events-none opacity-0 invisible"
+          />
+        )}
+
+        {/* Toggle Map Button (Top-Right) */}
+        <button
+          onClick={() => setShowMap(!showMap)}
+          className="absolute top-6 right-6 z-10 px-4 py-2 bg-slate-900/95 border-2 border-slate-700 hover:border-slate-500 text-teal-400 font-pixel-body text-xs rounded-none backdrop-blur-sm transition shadow-md"
+        >
+          {showMap ? "CLOSE MAP" : "WORLD MAP"}
+        </button>
+
+        {/* World Map Overlay */}
+        {showMap && (
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-20 flex items-center justify-center p-6 animate-fade-in">
+            <div className="bg-slate-900 border-8 border-slate-700 rounded-none p-6 max-w-2xl w-full flex flex-col gap-4 shadow-2xl relative">
+              <button
+                onClick={() => setShowMap(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white font-pixel-body font-bold text-sm px-2 bg-slate-950 border border-slate-700 hover:border-slate-500 rounded-none transition"
+              >
+                X
+              </button>
+              
+              <h3 className="font-pixel-title text-teal-400 text-lg border-b border-slate-800 pb-2">
+                REFRAME CASTLE MAP
+              </h3>
+
+              <div className="grid grid-cols-3 gap-4 border-2 border-slate-800 p-4 bg-slate-950 font-pixel-body text-[10px] leading-relaxed">
+                
+                {/* Column 1: Palace Wing */}
+                <div className="border border-slate-800 p-2 flex flex-col gap-2 rounded-none">
+                  <span className="text-purple-400 font-bold border-b border-slate-900 pb-1">PALACE WING</span>
+                  <div className={`p-1 border ${currentRoom === 'left_wing_floor_3' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Royal Library
+                  </div>
+                  <div className={`p-1 border ${currentRoom === 'left_wing_floor_2' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Palace Suite
+                  </div>
+                  <div className={`p-1 border ${currentRoom === 'left_wing' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Palace Lobby
+                  </div>
+                </div>
+
+                {/* Column 2: Main Hotel */}
+                <div className="border border-slate-800 p-2 flex flex-col gap-2 rounded-none justify-between">
+                  <div>
+                    <span className="text-teal-400 font-bold border-b border-slate-900 pb-1">MAIN HOTEL</span>
+                    <div className={`p-1 border mt-1 ${currentRoom === 'rooftop' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                      • Rooftop Deck
+                    </div>
+                    <div className={`p-1 border ${currentRoom === 'lobby' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                      • Hotel Lobby
+                    </div>
+                    <div className={`p-1 border ${currentRoom === 'distortion_room' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                      • Distortion Suite
+                    </div>
+                  </div>
+                  <div className={`p-2 border text-center ${currentRoom === 'outside' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Courtyard (Gates)
+                  </div>
+                </div>
+
+                {/* Column 3: Sacred Temple */}
+                <div className="border border-slate-800 p-2 flex flex-col gap-2 rounded-none">
+                  <span className="text-amber-400 font-bold border-b border-slate-900 pb-1">SACRED TEMPLE</span>
+                  <div className="p-1 border border-slate-900 text-slate-600">
+                    • Sanctuary (Locked)
+                  </div>
+                  <div className={`p-1 border ${currentRoom === 'temple_floor_2' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Temple Floor 2
+                  </div>
+                  <div className={`p-1 border ${currentRoom === 'temple_floor_1' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Temple Floor 1
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="text-[9px] font-pixel-body text-slate-400 leading-normal">
+                <span className="text-teal-400 font-bold">LEGEND:</span> Highlighted rooms indicate your current location. Walk to stairs or doorways to navigate between zones.
+              </div>
+            </div>
+          </div>
         )}
 
       </div>
