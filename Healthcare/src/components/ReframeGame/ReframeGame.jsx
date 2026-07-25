@@ -13,6 +13,7 @@ import {
   TrendingDown
 } from 'lucide-react';
 import { reframeAPI } from '../../services/reframeApi';
+import BreathingExercise from '../LifeQuest/Components/BreathingExercise';
 
 // Pre-generated pixel-art sprites hosted on Cloudinary
 const CHARACTER_SPRITES = {
@@ -266,6 +267,10 @@ const ReframeGame = ({ onExit }) => {
   const [monkSpeaking, setMonkSpeaking] = useState(false);
   const [monkSubtitle, setMonkSubtitle] = useState("");
   const hasTriggeredMonkSpeech = useRef(false);
+
+  // Breathing Exercise states
+  const [breathingExerciseActive, setBreathingExerciseActive] = useState(false);
+  const hasTriggeredFloor2Breathing = useRef(false);
 
   useEffect(() => {
     if (!window.YT) {
@@ -1362,9 +1367,24 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'temple_floor_2') {
+        // Trigger breathing exercise automatically when player stands in the balcony area (X: [500, 700], Y: [410, 535])
+        const isNearBalcony = player.current.x >= 500 && player.current.x <= 700 && player.current.y >= 410 && player.current.y <= 535;
+        if (isNearBalcony) {
+          if (!hasTriggeredFloor2Breathing.current) {
+            setMonkDialogueOpen(true);
+            triggerMonkSpeech("Breathe in and breathe out for 20 seconds.");
+            setBreathingExerciseActive(true);
+            hasTriggeredFloor2Breathing.current = true;
+          }
+        } else {
+          hasTriggeredFloor2Breathing.current = false;
+          setMonkDialogueOpen(false);
+        }
+
         // Stepped onto stairs to Floor 1 (bottom center X: [350, 550], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 550) {
           setCurrentRoom('temple_floor_1');
+          hasTriggeredFloor2Breathing.current = false; // Reset trigger on room change
           // Spawn player at bottom-left stairs landing on Floor 1
           player.current.x = 140;
           player.current.y = 480;
@@ -2131,6 +2151,45 @@ const ReframeGame = ({ onExit }) => {
             </div>
 
           </div>
+        )}
+
+        {/* Monk Subtitle Dialogue Box on Floor 2 (No drop downs/choices) */}
+        {currentRoom === 'temple_floor_2' && monkDialogueOpen && (
+          <div className="absolute bottom-6 right-6 w-full max-w-md bg-[#2d0f0f] border-4 border-amber-500 text-amber-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
+            <div className="flex justify-between items-start border-b-2 border-amber-500/20 pb-2">
+              <div>
+                <h4 className="font-bold text-lg font-pixel-body text-amber-400">Monk</h4>
+                <span className="text-[10px] text-amber-300/80 font-pixel-body">temple monk</span>
+              </div>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  triggerMonkSpeech(monkSubtitle || "Breathe in and breathe out for 20 seconds.");
+                }}
+                className="px-2 py-1 bg-[#451414] border-2 border-amber-500 hover:bg-[#5c1a1a] text-amber-200 transition rounded-none font-bold text-sm"
+              >
+                🔊
+              </button>
+            </div>
+            <div className="py-1">
+              <p className="text-sm font-semibold leading-relaxed font-pixel-body text-amber-100">
+                "{monkSubtitle}"
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Breathing Exercise Modal Overlay */}
+        {breathingExerciseActive && (
+          <BreathingExercise 
+            onComplete={() => {
+              setBreathingExerciseActive(false);
+              triggerMonkSpeech("Well done, peace is within you.");
+            }}
+            onClose={() => {
+              setBreathingExerciseActive(false);
+            }}
+          />
         )}
 
         {/* Closeable Legend & HUD Panel (Bottom-Left) */}
