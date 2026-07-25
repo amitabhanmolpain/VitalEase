@@ -158,6 +158,15 @@ const ReframeGame = ({ onExit }) => {
   const outsideBgRef = useRef(null);
   const [outsideBgLoaded, setOutsideBgLoaded] = useState(false);
 
+  const temple1BgRef = useRef(null);
+  const [temple1BgLoaded, setTemple1BgLoaded] = useState(false);
+
+  const temple2BgRef = useRef(null);
+  const [temple2BgLoaded, setTemple2BgLoaded] = useState(false);
+
+  const leftWingBgRef = useRef(null);
+  const [leftWingBgLoaded, setLeftWingBgLoaded] = useState(false);
+
   // Themed private rooms image refs
   const roomBgImagesRef = useRef({});
   const [roomBgsLoaded, setRoomBgsLoaded] = useState(false);
@@ -187,6 +196,8 @@ const ReframeGame = ({ onExit }) => {
   const keysPressed = useRef({});
   const animationFrameId = useRef(null);
   const lastTime = useRef(0);
+  const flashAlpha = useRef(0);
+  const lastThunderTime = useRef(0);
   const chatEndRef = useRef(null);
 
   // Dynamic window resize handler for full screen selection
@@ -202,6 +213,45 @@ const ReframeGame = ({ onExit }) => {
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, [stage]);
+
+  // Synthesize realistic thunder cracks and rumbles procedurally using Web Audio API low-frequency noise
+  const triggerThunderAudio = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const ctx = audioCtxRef.current || new AudioContext();
+      
+      const bufferSize = ctx.sampleRate * 2.5; // 2.5 seconds rumble
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      
+      // Resonant Lowpass Filter to create the deep boom/rumble
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(120, ctx.currentTime);
+      filter.frequency.exponentialRampToValueAtTime(12, ctx.currentTime + 2.3);
+      filter.Q.value = 4.0;
+      
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0, ctx.currentTime);
+      // Lightning strike crack peak
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 2.4);
+      
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      
+      noise.start();
+    } catch (e) {
+      console.warn("Thunder sound generation failed:", e);
+    }
+  };
 
   // Audio rain looping control (Only playing when outside on the rooftop or courtyard)
   const startRainAudio = () => {
@@ -372,6 +422,33 @@ const ReframeGame = ({ onExit }) => {
       setOutsideBgLoaded(true);
     };
 
+    // Load Temple Floor 1 background
+    const temple1Img = new Image();
+    temple1Img.crossOrigin = "anonymous";
+    temple1Img.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784979618/reframe_game/reframe_game/background_temple_floor_1.jpg";
+    temple1Img.onload = () => {
+      temple1BgRef.current = temple1Img;
+      setTemple1BgLoaded(true);
+    };
+
+    // Load Temple Floor 2 background
+    const temple2Img = new Image();
+    temple2Img.crossOrigin = "anonymous";
+    temple2Img.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784979619/reframe_game/reframe_game/background_temple_floor_2.jpg";
+    temple2Img.onload = () => {
+      temple2BgRef.current = temple2Img;
+      setTemple2BgLoaded(true);
+    };
+
+    // Load Left Wing Palace building background
+    const leftWingImg = new Image();
+    leftWingImg.crossOrigin = "anonymous";
+    leftWingImg.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784979620/reframe_game/reframe_game/background_left_wing_building.jpg";
+    leftWingImg.onload = () => {
+      leftWingBgRef.current = leftWingImg;
+      setLeftWingBgLoaded(true);
+    };
+
     // Load themed private rooms
     let loadedCount = 0;
     const total = Object.keys(ROOM_BACKGROUNDS).length;
@@ -454,8 +531,9 @@ const ReframeGame = ({ onExit }) => {
     const r = player.current.radius;
     
     if (currentRoom === 'rooftop') {
-      // Keeps the player strictly on the rooftop brick deck floor (preventing floating off-screen in sky)
-      if (newX - r < 120 || newX + r > 680 || newY - r < 200 || newY + r > 540) {
+      // Keeps the player strictly on the rooftop brick deck floor, allowing stairs access on the left
+      const minX = (newY >= 300 && newY <= 540) ? 60 : 120;
+      if (newX - r < minX || newX + r > 680 || newY - r < 200 || newY + r > 540) {
         return true;
       }
     } else if (currentRoom === 'lobby') {
@@ -471,6 +549,11 @@ const ReframeGame = ({ onExit }) => {
     } else if (currentRoom === 'outside') {
       // Keeps the player strictly in the outside courtyard area
       if (newX - r < 80 || newX + r > 720 || newY - r < 100 || newY + r > 550) {
+        return true;
+      }
+    } else if (currentRoom === 'temple_floor_1' || currentRoom === 'temple_floor_2' || currentRoom === 'left_wing') {
+      // General interior room bounds
+      if (newX - r < 100 || newX + r > 700 || newY - r < 100 || newY + r > 540) {
         return true;
       }
     }
@@ -528,6 +611,25 @@ const ReframeGame = ({ onExit }) => {
 
       if (!checkCollision(nextX, player.current.y)) player.current.x = nextX;
       if (!checkCollision(player.current.x, nextY)) player.current.y = nextY;
+
+      // Lock player Y on stairs diagonal incline
+      if (currentRoom === 'rooftop' && player.current.x < 240) {
+        player.current.y = 460 - (240 - player.current.x) * 0.6;
+      }
+
+      // Decay lightning flash
+      if (flashAlpha.current > 0) {
+        flashAlpha.current = Math.max(0, flashAlpha.current - dt * 2.0);
+      }
+
+      // Occasionally trigger procedural lightning strike (only when outdoors: rooftop or outside)
+      if (currentRoom === 'rooftop' || currentRoom === 'outside') {
+        if (Math.random() < 0.003 && (timestamp - lastThunderTime.current) > 5000) {
+          flashAlpha.current = 0.85;
+          lastThunderTime.current = timestamp;
+          triggerThunderAudio();
+        }
+      }
 
       // 2. Door Transition checks (using robust coordinate-based sensor zones)
       if (currentRoom === 'rooftop') {
@@ -614,11 +716,77 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
 
+        // Stepped onto Left Wing entrance door in the outside courtyard (top left X: [80, 180], Y < 120)
+        if (player.current.y < 120 && player.current.x >= 80 && player.current.x <= 180) {
+          setCurrentRoom('left_wing');
+          // Spawn player inside the left wing building hall
+          player.current.x = 400;
+          player.current.y = 480;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Stepped onto Temple entrance door in the outside courtyard (top right X: [580, 680], Y < 120)
+        if (player.current.y < 120 && player.current.x >= 580 && player.current.x <= 680) {
+          setCurrentRoom('temple_floor_1');
+          // Spawn player inside Temple Floor 1
+          player.current.x = 400;
+          player.current.y = 480;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
         // Exit the game if player walks off the bottom edge of the outside area
         if (player.current.y > 540) {
           cancelAnimationFrame(animationFrameId.current);
           stopRainAudio();
           handleBack();
+          return;
+        }
+      } else if (currentRoom === 'left_wing') {
+        // Stepped onto exit door in Left Wing hall (bottom center X: [350, 450], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
+          setCurrentRoom('outside');
+          // Spawn player in front of Left Wing steps in the courtyard
+          player.current.x = 130;
+          player.current.y = 220;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+      } else if (currentRoom === 'temple_floor_1') {
+        // Stepped onto exit door in Temple Floor 1 (bottom center X: [350, 450], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
+          setCurrentRoom('outside');
+          // Spawn player in front of Temple arches in the courtyard
+          player.current.x = 630;
+          player.current.y = 220;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Stepped onto stairs to Floor 2 (top left X: [100, 180], Y < 120)
+        if (player.current.y < 120 && player.current.x >= 100 && player.current.x <= 180) {
+          setCurrentRoom('temple_floor_2');
+          // Spawn player at bottom-left stairs landing on Floor 2
+          player.current.x = 140;
+          player.current.y = 450;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+      } else if (currentRoom === 'temple_floor_2') {
+        // Stepped onto stairs to Floor 1 (bottom left X: [100, 180], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 100 && player.current.x <= 180) {
+          setCurrentRoom('temple_floor_1');
+          // Spawn player at top-left stairs landing on Floor 1
+          player.current.x = 140;
+          player.current.y = 140;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
       }
@@ -686,7 +854,9 @@ const ReframeGame = ({ onExit }) => {
         ctx.fillStyle = '#ffffff';
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
+        ctx.fillText("PALACE WING", 130, 135);
         ctx.fillText("HOTEL LOBBY", 400, 135);
+        ctx.fillText("TEMPLE", 630, 135);
         ctx.fillText("EXIT GAME", 400, 530);
 
         // Draw Dynamic Weather Rain (outside courtyard has rain too!)
@@ -708,6 +878,46 @@ const ReframeGame = ({ onExit }) => {
             }
           });
         }
+      } else if (currentRoom === 'left_wing') {
+        // Left Wing interior hall rendering
+        if (leftWingBgRef.current && leftWingBgLoaded) {
+          ctx.drawImage(leftWingBgRef.current, 0, 0, 800, 600);
+        } else {
+          ctx.fillStyle = '#1e1b4b';
+          ctx.fillRect(0, 0, 800, 600);
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("EXIT", 400, 530);
+      } else if (currentRoom === 'temple_floor_1') {
+        // Temple Floor 1 interior rendering
+        if (temple1BgRef.current && temple1BgLoaded) {
+          ctx.drawImage(temple1BgRef.current, 0, 0, 800, 600);
+        } else {
+          ctx.fillStyle = '#312e81';
+          ctx.fillRect(0, 0, 800, 600);
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("UP TO FLOOR 2", 140, 130);
+        ctx.fillText("EXIT", 400, 530);
+      } else if (currentRoom === 'temple_floor_2') {
+        // Temple Floor 2 interior rendering
+        if (temple2BgRef.current && temple2BgLoaded) {
+          ctx.drawImage(temple2BgRef.current, 0, 0, 800, 600);
+        } else {
+          ctx.fillStyle = '#311042';
+          ctx.fillRect(0, 0, 800, 600);
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("DOWN TO FLOOR 1", 140, 530);
       } else if (currentRoom === 'distortion_room') {
         // Dedicated private themed room visualization from Nano Banana
         const themedRoomBg = roomBgImagesRef.current[selectedType];
@@ -750,6 +960,26 @@ const ReframeGame = ({ onExit }) => {
           ctx.arc(400, 200, 20, 0, Math.PI*2);
           ctx.fill();
         }
+
+        // Window lightning animations (thunder flashes inside window frames)
+        const THEMED_ROOM_WINDOWS = [
+          { x: 60, y: 150, w: 280, h: 120 },
+          { x: 60, y: 280, w: 280, h: 120 },
+          { x: 60, y: 410, w: 280, h: 120 },
+          { x: 390, y: 170, w: 250, h: 190 }
+        ];
+
+        THEMED_ROOM_WINDOWS.forEach((win) => {
+          if (flashAlpha.current > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(win.x, win.y, win.w, win.h);
+            ctx.clip();
+            ctx.fillStyle = `rgba(224, 242, 254, ${flashAlpha.current * 0.9})`;
+            ctx.fillRect(win.x, win.y, win.w, win.h);
+            ctx.restore();
+          }
+        });
       }
 
       // Draw Grid Overlay lines (translucent for retro alignment)
@@ -761,8 +991,13 @@ const ReframeGame = ({ onExit }) => {
         }
       }
 
-      // Draw player character sprite scaled up to 120px to match tall background characters exactly
-      const VISUAL_PLAYER_SIZE = 120;
+      // Draw player character sprite scaled up (with stair scaling on rooftop)
+      let scaleFactor = 1.0;
+      if (currentRoom === 'rooftop' && player.current.x < 240) {
+        scaleFactor = 0.7 + ((player.current.x - 60) / 180) * 0.3;
+        scaleFactor = Math.max(0.7, Math.min(1.0, scaleFactor));
+      }
+      const VISUAL_PLAYER_SIZE = 120 * scaleFactor;
       if (playerImageRef.current && playerImageRef.current.complete) {
         ctx.drawImage(
           playerImageRef.current,
@@ -788,6 +1023,12 @@ const ReframeGame = ({ onExit }) => {
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, 800, 600);
 
+      // Draw full-screen lightning flash overlay when active (outdoors)
+      if (flashAlpha.current > 0 && (currentRoom === 'rooftop' || currentRoom === 'outside')) {
+        ctx.fillStyle = `rgba(224, 242, 254, ${flashAlpha.current * 0.6})`;
+        ctx.fillRect(0, 0, 800, 600);
+      }
+
       // Restore scaling context
       ctx.restore();
 
@@ -799,7 +1040,7 @@ const ReframeGame = ({ onExit }) => {
     return () => {
       cancelAnimationFrame(animationFrameId.current);
     };
-  }, [stage, bgLoaded, lobbyBgLoaded, outsideBgLoaded, roomBgsLoaded, prefersReducedMotion, canvasDimensions, currentRoom, selectedType]);
+  }, [stage, bgLoaded, lobbyBgLoaded, outsideBgLoaded, temple1BgLoaded, temple2BgLoaded, leftWingBgLoaded, roomBgsLoaded, prefersReducedMotion, canvasDimensions, currentRoom, selectedType]);
 
   const handleStartGame = (typeKey) => {
     setSelectedType(typeKey);
