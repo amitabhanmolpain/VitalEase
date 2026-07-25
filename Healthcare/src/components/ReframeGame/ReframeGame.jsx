@@ -196,7 +196,7 @@ const ReframeGame = ({ onExit }) => {
   const canvasRef = useRef(null);
   const player = useRef({
     x: 400, // Spawn centered on rooftop deck
-    y: 350,
+    y: 440,
     radius: 12,
     speed: 150
   });
@@ -569,8 +569,12 @@ const ReframeGame = ({ onExit }) => {
         }
       }
     } else if (currentRoom === 'lobby') {
-      // Allows walking anywhere inside the central hallway/reception area bounds
-      if (newX - r < 200 || newX + r > 600 || newY - r < 60 || newY + r > 540) {
+      // Allows walking down to Y=110 inside the top doorway, else locks Y >= 180 to block top walls
+      let minY = 180;
+      if (newX >= 380 && newX <= 460) {
+        minY = 110;
+      }
+      if (newX - r < 200 || newX + r > 600 || newY - r < minY || newY + r > 540) {
         return true;
       }
     } else if (currentRoom === 'distortion_room') {
@@ -579,9 +583,25 @@ const ReframeGame = ({ onExit }) => {
         return true;
       }
     } else if (currentRoom === 'outside') {
-      // Keeps the player strictly in the outside courtyard area
-      if (newX - r < 80 || newX + r > 720 || newY - r < 100 || newY + r > 550) {
+      // Courtyard horizontal & bottom bounds (wider scope to allow steps sides X=70 to 730)
+      if (newX - r < 70 || newX + r > 730 || newY + r > 550) {
         return true;
+      }
+      // If climbing stairs or steps above the general floor line (Y < 410)
+      if (newY - r < 410) {
+        if (newX >= 70 && newX <= 160) {
+          // Left Wing Palace steps: Y can go down to 280
+          if (newY - r < 280) return true;
+        } else if (newX >= 450 && newX <= 550) {
+          // Hotel Lobby steps: Y can go down to 360
+          if (newY - r < 360) return true;
+        } else if (newX >= 640 && newX <= 730) {
+          // Temple steps: Y can go down to 280
+          if (newY - r < 280) return true;
+        } else {
+          // Block all other sky/wall flying zones
+          return true;
+        }
       }
     } else if (currentRoom === 'temple_floor_2' && newX + r > 640 && newY - r < 300) {
       setLockAlertText("This room is locked.");
@@ -660,6 +680,12 @@ const ReframeGame = ({ onExit }) => {
       // Lock player Y on stairs diagonal incline
       if (currentRoom === 'rooftop' && player.current.x < 240) {
         player.current.y = 460 - (240 - player.current.x) * 0.6;
+      } else if (currentRoom === 'outside') {
+        if (player.current.x >= 70 && player.current.x <= 160 && player.current.y <= 410) {
+          player.current.y = 410 - (player.current.x - 70) * 1.2;
+        } else if (player.current.x >= 640 && player.current.x <= 730 && player.current.y <= 410) {
+          player.current.y = 410 - (730 - player.current.x) * 1.2;
+        }
       }
 
       // Decay lightning flash
@@ -678,12 +704,12 @@ const ReframeGame = ({ onExit }) => {
 
       // 2. Door Transition checks (using robust coordinate-based sensor zones)
       if (currentRoom === 'rooftop') {
-        // Climbing stairs to the top-left (X <= 80) redirects to the Lobby
-        if (player.current.x <= 80) {
+        // Climbing stairs to the covered terrace (X <= 210) redirects to the Lobby
+        if (player.current.x <= 210) {
           setCurrentRoom('lobby');
           // Spawn safely inside the top door of the Lobby
           player.current.x = 420;
-          player.current.y = 130;
+          player.current.y = 150;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -702,13 +728,13 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
 
-        // Stepped onto the Lobby exit back to Rooftop door (centered at X=420, Y=60)
-        // Trigger transition if Y is near the top edge (< 90) and X is within the door [380, 460]
-        if (player.current.y < 90 && player.current.x >= 380 && player.current.x <= 460) {
+        // Stepped onto the Lobby exit back to Rooftop door (centered at X=420, Y=130)
+        // Trigger transition if Y is inside the doorway (< 135) and X is within the door [380, 460]
+        if (player.current.y <= 135 && player.current.x >= 380 && player.current.x <= 460) {
           setCurrentRoom('rooftop');
-          // Spawn safely at the top landing of the stairs on the rooftop
-          player.current.x = 90;
-          player.current.y = 370;
+          // Spawn safely past the trigger line on the rooftop stairs
+          player.current.x = 230;
+          player.current.y = 454;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -718,9 +744,9 @@ const ReframeGame = ({ onExit }) => {
         // Trigger transition if Y is near the bottom edge (> 510) and X is within the door [380, 460]
         if (player.current.y > 510 && player.current.x >= 380 && player.current.x <= 460) {
           setCurrentRoom('outside');
-          // Spawn player at the top center of the outside area, walking out of the hotel entrance door
-          player.current.x = 400;
-          player.current.y = 120;
+          // Spawn player at the hotel doorway in the courtyard
+          player.current.x = 500;
+          player.current.y = 405;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -739,7 +765,7 @@ const ReframeGame = ({ onExit }) => {
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
-
+ 
         // Stepped onto the distortion NPC to trigger CBT reframe conversation
         const npcDist = Math.hypot(player.current.x - 400, player.current.y - 200);
         if (npcDist < 24) {
@@ -749,30 +775,30 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'outside') {
-        // Stepped onto Lobby entrance door in the outside courtyard (top center X: [360, 440], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 360 && player.current.x <= 440) {
+        // Enters Hotel Lobby door (centered at X: [450, 550], Y <= 390)
+        if (player.current.y <= 390 && player.current.x >= 450 && player.current.x <= 550) {
           setCurrentRoom('lobby');
-          // Spawn player next to the lobby entry door safely (above the exit mat trigger zone)
-          player.current.x = 420;
-          player.current.y = 480;
+          // Spawn safely on the Lobby floor rug (safely below walls)
+          player.current.x = 500;
+          player.current.y = 200;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
-
-        // Stepped onto Left Wing entrance door in the outside courtyard (top left X: [80, 180], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 80 && player.current.x <= 180) {
+ 
+        // Enters Left Wing palace building at the top of Left Wing stairs (X: [140, 170], Y <= 315)
+        if (player.current.y <= 315 && player.current.x >= 140 && player.current.x <= 170) {
           setCurrentRoom('left_wing');
-          // Spawn player inside the left wing building hall
+          // Spawn inside the Left Wing building lobby
           player.current.x = 400;
           player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
-
-        // Stepped onto Temple entrance door in the outside courtyard (top right X: [580, 680], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 580 && player.current.x <= 680) {
+ 
+        // Enters Temple at the top of Temple stairs (X: [630, 660], Y <= 315)
+        if (player.current.y <= 315 && player.current.x >= 630 && player.current.x <= 660) {
           setCurrentRoom('temple_floor_1');
           // Spawn player inside Temple Floor 1
           player.current.x = 400;
@@ -813,9 +839,9 @@ const ReframeGame = ({ onExit }) => {
         // Stepped onto exit door in Left Wing lobby (bottom center X: [350, 450], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('outside');
-          // Spawn player in front of Left Wing steps in the courtyard
-          player.current.x = 130;
-          player.current.y = 220;
+          // Spawn player slightly down the Left Wing stairs in the courtyard to prevent instant re-entry loop
+          player.current.x = 135;
+          player.current.y = 310;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -846,9 +872,9 @@ const ReframeGame = ({ onExit }) => {
         // Stepped onto exit door in Temple Floor 1 (bottom center X: [350, 450], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('outside');
-          // Spawn player in front of Temple arches in the courtyard
-          player.current.x = 630;
-          player.current.y = 220;
+          // Spawn player slightly down the Temple stairs in the courtyard to prevent instant re-entry loop
+          player.current.x = 665;
+          player.current.y = 310;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -1139,28 +1165,43 @@ const ReframeGame = ({ onExit }) => {
         }
       }
 
-      // Draw player character sprite scaled up (with stair scaling on rooftop, and grand palace scaling inside Left Wing)
-      // Draw player character sprite scaled dynamically based on room sizes
-      let VISUAL_PLAYER_SIZE = 120;
+      // Draw player character sprite scaled dynamically based on room sizes (increased sizes)
+      let VISUAL_PLAYER_SIZE = 145;
       if (currentRoom === 'rooftop') {
         let scaleFactor = 1.0;
         if (player.current.x < 240) {
           scaleFactor = 0.7 + ((player.current.x - 60) / 180) * 0.3;
           scaleFactor = Math.max(0.7, Math.min(1.0, scaleFactor));
         }
-        VISUAL_PLAYER_SIZE = 120 * scaleFactor;
+        VISUAL_PLAYER_SIZE = 145 * scaleFactor;
       } else if (currentRoom === 'lobby') {
-        VISUAL_PLAYER_SIZE = 105;
+        VISUAL_PLAYER_SIZE = 130;
       } else if (currentRoom === 'outside') {
-        VISUAL_PLAYER_SIZE = 115;
+        let scaleFactor = 1.0;
+        const px = player.current.x;
+        const py = player.current.y;
+        if (py < 410) {
+          if (px >= 80 && px <= 200) {
+            // Left wing stairs depth scaling
+            scaleFactor = 1.0 - ((410 - py) / 110) * 0.35;
+          } else if (px >= 600 && px <= 720) {
+            // Temple stairs depth scaling
+            scaleFactor = 1.0 - ((410 - py) / 110) * 0.35;
+          } else if (px >= 450 && px <= 550) {
+            // Hotel Lobby steps depth scaling
+            scaleFactor = 1.0 - ((410 - py) / 30) * 0.15;
+          }
+          scaleFactor = Math.max(0.6, Math.min(1.0, scaleFactor));
+        }
+        VISUAL_PLAYER_SIZE = 145 * scaleFactor;
       } else if (currentRoom === 'left_wing' || currentRoom === 'left_wing_floor_2' || currentRoom === 'left_wing_floor_3') {
-        VISUAL_PLAYER_SIZE = 185;
+        VISUAL_PLAYER_SIZE = 210;
       } else if (currentRoom === 'temple_floor_1') {
-        VISUAL_PLAYER_SIZE = 150;
+        VISUAL_PLAYER_SIZE = 180;
       } else if (currentRoom === 'temple_floor_2') {
-        VISUAL_PLAYER_SIZE = 135;
+        VISUAL_PLAYER_SIZE = 160;
       } else {
-        VISUAL_PLAYER_SIZE = 110;
+        VISUAL_PLAYER_SIZE = 135;
       }
       if (playerImageRef.current && playerImageRef.current.complete) {
         ctx.drawImage(
