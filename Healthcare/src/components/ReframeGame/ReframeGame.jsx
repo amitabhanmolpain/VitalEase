@@ -167,6 +167,14 @@ const ReframeGame = ({ onExit }) => {
   const leftWingBgRef = useRef(null);
   const [leftWingBgLoaded, setLeftWingBgLoaded] = useState(false);
 
+  const leftWing2BgRef = useRef(null);
+  const [leftWing2BgLoaded, setLeftWing2BgLoaded] = useState(false);
+
+  const leftWing3BgRef = useRef(null);
+  const [leftWing3BgLoaded, setLeftWing3BgLoaded] = useState(false);
+
+  const [lockAlertText, setLockAlertText] = useState("");
+
   // Themed private rooms image refs
   const roomBgImagesRef = useRef({});
   const [roomBgsLoaded, setRoomBgsLoaded] = useState(false);
@@ -440,13 +448,31 @@ const ReframeGame = ({ onExit }) => {
       setTemple2BgLoaded(true);
     };
 
-    // Load Left Wing Palace building background
+    // Load Left Wing Palace building lobby background
     const leftWingImg = new Image();
     leftWingImg.crossOrigin = "anonymous";
-    leftWingImg.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784979620/reframe_game/reframe_game/background_left_wing_building.jpg";
+    leftWingImg.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784980755/reframe_game/reframe_game/background_left_wing_building.jpg";
     leftWingImg.onload = () => {
       leftWingBgRef.current = leftWingImg;
       setLeftWingBgLoaded(true);
+    };
+
+    // Load Left Wing Floor 2 background
+    const leftWing2Img = new Image();
+    leftWing2Img.crossOrigin = "anonymous";
+    leftWing2Img.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784980540/reframe_game/reframe_game/background_left_wing_floor_2.jpg";
+    leftWing2Img.onload = () => {
+      leftWing2BgRef.current = leftWing2Img;
+      setLeftWing2BgLoaded(true);
+    };
+
+    // Load Left Wing Floor 3 background
+    const leftWing3Img = new Image();
+    leftWing3Img.crossOrigin = "anonymous";
+    leftWing3Img.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784980542/reframe_game/reframe_game/background_left_wing_floor_3.jpg";
+    leftWing3Img.onload = () => {
+      leftWing3BgRef.current = leftWing3Img;
+      setLeftWing3BgLoaded(true);
     };
 
     // Load themed private rooms
@@ -551,7 +577,20 @@ const ReframeGame = ({ onExit }) => {
       if (newX - r < 80 || newX + r > 720 || newY - r < 100 || newY + r > 550) {
         return true;
       }
-    } else if (currentRoom === 'temple_floor_1' || currentRoom === 'temple_floor_2' || currentRoom === 'left_wing') {
+    } else if (currentRoom === 'temple_floor_2' && newX + r > 640 && newY - r < 300) {
+      setLockAlertText("This room is locked.");
+      if (window.lockAlertTimeout) clearTimeout(window.lockAlertTimeout);
+      window.lockAlertTimeout = setTimeout(() => {
+        setLockAlertText("");
+      }, 2000);
+      return true;
+    } else if (
+      currentRoom === 'temple_floor_1' || 
+      currentRoom === 'temple_floor_2' || 
+      currentRoom === 'left_wing' ||
+      currentRoom === 'left_wing_floor_2' ||
+      currentRoom === 'left_wing_floor_3'
+    ) {
       // General interior room bounds
       if (newX - r < 100 || newX + r > 700 || newY - r < 100 || newY + r > 540) {
         return true;
@@ -746,12 +785,54 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'left_wing') {
-        // Stepped onto exit door in Left Wing hall (bottom center X: [350, 450], Y > 510)
+        // Left Door to Palace Suite Bedroom (top left X: [80, 180], Y < 120)
+        if (player.current.y < 120 && player.current.x >= 80 && player.current.x <= 180) {
+          setCurrentRoom('left_wing_floor_2');
+          player.current.x = 400;
+          player.current.y = 480;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Right Door to Royal Library (top right X: [600, 700], Y < 120)
+        if (player.current.y < 120 && player.current.x >= 600 && player.current.x <= 700) {
+          setCurrentRoom('left_wing_floor_3');
+          player.current.x = 400;
+          player.current.y = 480;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Stepped onto exit door in Left Wing lobby (bottom center X: [350, 450], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('outside');
           // Spawn player in front of Left Wing steps in the courtyard
           player.current.x = 130;
           player.current.y = 220;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+      } else if (currentRoom === 'left_wing_floor_2') {
+        // Exit back to Left Wing Lobby (bottom center X: [350, 450], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
+          setCurrentRoom('left_wing');
+          // Spawn in front of the Palace Suite door in Left Wing Lobby
+          player.current.x = 130;
+          player.current.y = 140;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+      } else if (currentRoom === 'left_wing_floor_3') {
+        // Exit back to Left Wing Lobby (bottom center X: [350, 450], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
+          setCurrentRoom('left_wing');
+          // Spawn in front of the Library door in Left Wing Lobby
+          player.current.x = 650;
+          player.current.y = 140;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -879,11 +960,39 @@ const ReframeGame = ({ onExit }) => {
           });
         }
       } else if (currentRoom === 'left_wing') {
-        // Left Wing interior hall rendering
+        // Left Wing Lobby corridor interior rendering
         if (leftWingBgRef.current && leftWingBgLoaded) {
           ctx.drawImage(leftWingBgRef.current, 0, 0, 800, 600);
         } else {
           ctx.fillStyle = '#1e1b4b';
+          ctx.fillRect(0, 0, 800, 600);
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("PALACE SUITE", 130, 130);
+        ctx.fillText("ROYAL LIBRARY", 650, 130);
+        ctx.fillText("EXIT", 400, 530);
+      } else if (currentRoom === 'left_wing_floor_2') {
+        // Left Wing Floor 2 (Palace Suite Bedroom) rendering
+        if (leftWing2BgRef.current && leftWing2BgLoaded) {
+          ctx.drawImage(leftWing2BgRef.current, 0, 0, 800, 600);
+        } else {
+          ctx.fillStyle = '#2e1022';
+          ctx.fillRect(0, 0, 800, 600);
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("EXIT", 400, 530);
+      } else if (currentRoom === 'left_wing_floor_3') {
+        // Left Wing Floor 3 (Royal Library) rendering
+        if (leftWing3BgRef.current && leftWing3BgLoaded) {
+          ctx.drawImage(leftWing3BgRef.current, 0, 0, 800, 600);
+        } else {
+          ctx.fillStyle = '#112211';
           ctx.fillRect(0, 0, 800, 600);
         }
 
@@ -918,6 +1027,36 @@ const ReframeGame = ({ onExit }) => {
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.fillText("DOWN TO FLOOR 1", 140, 530);
+
+        // Draw custom padlock vector and locked label on right arch doorway
+        ctx.fillStyle = '#f43f5e'; // red locked text
+        ctx.font = '8px "Press Start 2P"';
+        ctx.fillText("LOCKED", 720, 220);
+
+        const drawPadlock = (x, y) => {
+          ctx.save();
+          ctx.fillStyle = '#f59e0b'; // golden body
+          ctx.strokeStyle = '#d97706';
+          ctx.lineWidth = 1.5;
+          
+          // Shackle
+          ctx.beginPath();
+          ctx.arc(x, y - 4, 6, Math.PI, 0);
+          ctx.stroke();
+          
+          // Body
+          ctx.fillRect(x - 8, y - 4, 16, 12);
+          ctx.strokeRect(x - 8, y - 4, 16, 12);
+          
+          // Keyhole
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.arc(x, y + 1, 2, 0, Math.PI*2);
+          ctx.fill();
+          ctx.fillRect(x - 1, y + 1, 2, 5);
+          ctx.restore();
+        };
+        drawPadlock(720, 240);
       } else if (currentRoom === 'distortion_room') {
         // Dedicated private themed room visualization from Nano Banana
         const themedRoomBg = roomBgImagesRef.current[selectedType];
@@ -991,11 +1130,13 @@ const ReframeGame = ({ onExit }) => {
         }
       }
 
-      // Draw player character sprite scaled up (with stair scaling on rooftop)
+      // Draw player character sprite scaled up (with stair scaling on rooftop, and grand palace scaling inside Left Wing)
       let scaleFactor = 1.0;
       if (currentRoom === 'rooftop' && player.current.x < 240) {
         scaleFactor = 0.7 + ((player.current.x - 60) / 180) * 0.3;
         scaleFactor = Math.max(0.7, Math.min(1.0, scaleFactor));
+      } else if (currentRoom === 'left_wing' || currentRoom === 'left_wing_floor_2' || currentRoom === 'left_wing_floor_3') {
+        scaleFactor = 1.65;
       }
       const VISUAL_PLAYER_SIZE = 120 * scaleFactor;
       if (playerImageRef.current && playerImageRef.current.complete) {
@@ -1029,6 +1170,22 @@ const ReframeGame = ({ onExit }) => {
         ctx.fillRect(0, 0, 800, 600);
       }
 
+      // Draw locked alert banner overlay when active
+      if (lockAlertText) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+        ctx.fillRect(200, 20, 400, 45);
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(200, 20, 400, 45);
+        
+        ctx.fillStyle = '#fca5a5';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText(lockAlertText, 400, 46);
+        ctx.restore();
+      }
+
       // Restore scaling context
       ctx.restore();
 
@@ -1040,7 +1197,7 @@ const ReframeGame = ({ onExit }) => {
     return () => {
       cancelAnimationFrame(animationFrameId.current);
     };
-  }, [stage, bgLoaded, lobbyBgLoaded, outsideBgLoaded, temple1BgLoaded, temple2BgLoaded, leftWingBgLoaded, roomBgsLoaded, prefersReducedMotion, canvasDimensions, currentRoom, selectedType]);
+  }, [stage, bgLoaded, lobbyBgLoaded, outsideBgLoaded, temple1BgLoaded, temple2BgLoaded, leftWingBgLoaded, leftWing2BgLoaded, leftWing3BgLoaded, roomBgsLoaded, prefersReducedMotion, canvasDimensions, currentRoom, selectedType, lockAlertText]);
 
   const handleStartGame = (typeKey) => {
     setSelectedType(typeKey);
