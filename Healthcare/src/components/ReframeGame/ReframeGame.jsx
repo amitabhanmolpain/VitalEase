@@ -623,8 +623,25 @@ const ReframeGame = ({ onExit }) => {
       currentRoom === 'left_wing_floor_2' ||
       currentRoom === 'left_wing_floor_3'
     ) {
-      // General interior room bounds
-      if (newX - r < 100 || newX + r > 700 || newY - r < 100 || newY + r > 540) {
+      // Horizontal bounds: X must be inside [100, 700]
+      if (newX - r < 100 || newX + r > 700) {
+        return true;
+      }
+      // Bottom bounds: Y cannot exceed 540
+      if (newY + r > 540) {
+        return true;
+      }
+
+      // Room-specific top (minY) bounds to restrict flying on walls/pillars
+      let minY = 410; // Default floor line
+      if (currentRoom === 'left_wing') {
+        // Can walk up the left corridor to Suite or right corridor to Library
+        if ((newX >= 80 && newX <= 180) || (newX >= 600 && newX <= 700)) {
+          minY = 100;
+        }
+      }
+
+      if (newY - r < minY) {
         return true;
       }
     }
@@ -912,23 +929,23 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
 
-        // Stepped onto stairs to Floor 2 (top left X: [100, 180], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 100 && player.current.x <= 180) {
+        // Stepped onto stairs to Floor 2 (bottom left X: [100, 180], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 100 && player.current.x <= 180) {
           setCurrentRoom('temple_floor_2');
-          // Spawn player at bottom-left stairs landing on Floor 2
-          player.current.x = 140;
-          player.current.y = 450;
+          // Spawn player on Floor 2 at the top of the stone stairs (safely on the walkway)
+          player.current.x = 450;
+          player.current.y = 485;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
       } else if (currentRoom === 'temple_floor_2') {
-        // Stepped onto stairs to Floor 1 (bottom left X: [100, 180], Y > 510)
-        if (player.current.y > 510 && player.current.x >= 100 && player.current.x <= 180) {
+        // Stepped onto stairs to Floor 1 (bottom center X: [350, 550], Y > 510)
+        if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 550) {
           setCurrentRoom('temple_floor_1');
-          // Spawn player at top-left stairs landing on Floor 1
+          // Spawn player at bottom-left stairs landing on Floor 1
           player.current.x = 140;
-          player.current.y = 140;
+          player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -1075,7 +1092,7 @@ const ReframeGame = ({ onExit }) => {
         ctx.fillStyle = '#ffffff';
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.fillText("UP TO FLOOR 2", 140, 130);
+        ctx.fillText("UP TO FLOOR 2", 140, 500);
         ctx.fillText("EXIT", 400, 530);
       } else if (currentRoom === 'temple_floor_2') {
         // Temple Floor 2 interior rendering
@@ -1089,7 +1106,7 @@ const ReframeGame = ({ onExit }) => {
         ctx.fillStyle = '#ffffff';
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.fillText("DOWN TO FLOOR 1", 140, 530);
+        ctx.fillText("DOWN TO FLOOR 1", 450, 520);
 
         // Draw custom padlock vector and locked label on right arch doorway
         ctx.fillStyle = '#f43f5e'; // red locked text
