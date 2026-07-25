@@ -259,6 +259,7 @@ const ReframeGame = ({ onExit }) => {
   const receptionistAudioRef = useRef(null);
   const [playerSpeaking, setPlayerSpeaking] = useState(false);
   const lobbyMusicPlayerRef = useRef(null);
+  const lobbyMusicContainerRef = useRef(null);
 
   useEffect(() => {
     if (!window.YT) {
@@ -271,6 +272,13 @@ const ReframeGame = ({ onExit }) => {
 
   useEffect(() => {
     if (currentRoom === 'lobby' && stage === 'select') {
+      if (!lobbyMusicContainerRef.current) return;
+      lobbyMusicContainerRef.current.innerHTML = '';
+      
+      const playerDiv = document.createElement('div');
+      playerDiv.id = 'lobby-music-player';
+      lobbyMusicContainerRef.current.appendChild(playerDiv);
+
       const initPlayer = () => {
         if (lobbyMusicPlayerRef.current) return;
         lobbyMusicPlayerRef.current = new window.YT.Player('lobby-music-player', {
@@ -306,6 +314,9 @@ const ReframeGame = ({ onExit }) => {
           lobbyMusicPlayerRef.current.destroy();
         } catch (e) {}
         lobbyMusicPlayerRef.current = null;
+      }
+      if (lobbyMusicContainerRef.current) {
+        lobbyMusicContainerRef.current.innerHTML = '';
       }
     }
   }, [currentRoom, stage]);
@@ -716,7 +727,9 @@ const ReframeGame = ({ onExit }) => {
       };
 
       setReceptionistSpeaking(true);
-      window.speechSynthesis.speak(utterance);
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+      }, 50);
     } else {
       if (receptionistTimeoutRef.current) clearTimeout(receptionistTimeoutRef.current);
       receptionistTimeoutRef.current = setTimeout(() => {
@@ -809,7 +822,9 @@ const ReframeGame = ({ onExit }) => {
         if (onEnd) onEnd();
       };
       setPlayerSpeaking(true);
-      window.speechSynthesis.speak(utterance);
+      setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+      }, 50);
     } else {
       setPlayerSpeaking(true);
       setTimeout(() => {
@@ -2016,10 +2031,8 @@ const ReframeGame = ({ onExit }) => {
           </button>
         )}
 
-        {/* Hidden YouTube player div for background music in Lobby with reduced volume */}
-        {currentRoom === 'lobby' && (
-          <div id="lobby-music-player" className="absolute pointer-events-none opacity-0 invisible" />
-        )}
+        {/* Persistent container for Lobby music player to prevent React removeChild DOM mismatch */}
+        <div ref={lobbyMusicContainerRef} className="absolute pointer-events-none opacity-0 invisible" />
 
         {/* Hidden YouTube Iframe player for background music in Temple (Floor 1 & Floor 2) */}
         {(currentRoom === 'temple_floor_1' || currentRoom === 'temple_floor_2') && (
