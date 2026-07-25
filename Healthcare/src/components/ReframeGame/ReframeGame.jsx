@@ -557,10 +557,16 @@ const ReframeGame = ({ onExit }) => {
     const r = player.current.radius;
     
     if (currentRoom === 'rooftop') {
-      // Keeps the player strictly on the rooftop brick deck floor, allowing stairs access on the left
-      const minX = (newY >= 300 && newY <= 540) ? 60 : 120;
-      if (newX - r < minX || newX + r > 680 || newY - r < 200 || newY + r > 540) {
-        return true;
+      // Keep player below the railing/fence (Y >= 380) when on the main brick deck
+      if (newX >= 240) {
+        if (newX + r > 680 || newY - r < 380 || newY + r > 540) {
+          return true;
+        }
+      } else {
+        // Allow diagonal climbing down to X = 60
+        if (newX - r < 60 || newY + r > 540) {
+          return true;
+        }
       }
     } else if (currentRoom === 'lobby') {
       // Allows walking anywhere inside the central hallway/reception area bounds
@@ -672,11 +678,10 @@ const ReframeGame = ({ onExit }) => {
 
       // 2. Door Transition checks (using robust coordinate-based sensor zones)
       if (currentRoom === 'rooftop') {
-        // Stepped onto the rooftop Lobby door (centered exactly on doorway visual: X=215, Y=220)
-        // Trigger transition if Y is near the top edge (< 235) and X is within the doorway [185, 245]
-        if (player.current.y < 235 && player.current.x >= 185 && player.current.x <= 245) {
+        // Climbing stairs to the top-left (X <= 80) redirects to the Lobby
+        if (player.current.x <= 80) {
           setCurrentRoom('lobby');
-          // Spawn player next to the lobby entry door safely (below the trigger zone)
+          // Spawn safely inside the top door of the Lobby
           player.current.x = 420;
           player.current.y = 130;
           cancelAnimationFrame(animationFrameId.current);
@@ -701,9 +706,9 @@ const ReframeGame = ({ onExit }) => {
         // Trigger transition if Y is near the top edge (< 90) and X is within the door [380, 460]
         if (player.current.y < 90 && player.current.x >= 380 && player.current.x <= 460) {
           setCurrentRoom('rooftop');
-          // Spawn safely on the rooftop deck outside the door trigger zone
-          player.current.x = 215;
-          player.current.y = 270;
+          // Spawn safely at the top landing of the stairs on the rooftop
+          player.current.x = 90;
+          player.current.y = 370;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -1135,14 +1140,28 @@ const ReframeGame = ({ onExit }) => {
       }
 
       // Draw player character sprite scaled up (with stair scaling on rooftop, and grand palace scaling inside Left Wing)
-      let scaleFactor = 1.0;
-      if (currentRoom === 'rooftop' && player.current.x < 240) {
-        scaleFactor = 0.7 + ((player.current.x - 60) / 180) * 0.3;
-        scaleFactor = Math.max(0.7, Math.min(1.0, scaleFactor));
+      // Draw player character sprite scaled dynamically based on room sizes
+      let VISUAL_PLAYER_SIZE = 120;
+      if (currentRoom === 'rooftop') {
+        let scaleFactor = 1.0;
+        if (player.current.x < 240) {
+          scaleFactor = 0.7 + ((player.current.x - 60) / 180) * 0.3;
+          scaleFactor = Math.max(0.7, Math.min(1.0, scaleFactor));
+        }
+        VISUAL_PLAYER_SIZE = 120 * scaleFactor;
+      } else if (currentRoom === 'lobby') {
+        VISUAL_PLAYER_SIZE = 105;
+      } else if (currentRoom === 'outside') {
+        VISUAL_PLAYER_SIZE = 115;
       } else if (currentRoom === 'left_wing' || currentRoom === 'left_wing_floor_2' || currentRoom === 'left_wing_floor_3') {
-        scaleFactor = 1.65;
+        VISUAL_PLAYER_SIZE = 185;
+      } else if (currentRoom === 'temple_floor_1') {
+        VISUAL_PLAYER_SIZE = 150;
+      } else if (currentRoom === 'temple_floor_2') {
+        VISUAL_PLAYER_SIZE = 135;
+      } else {
+        VISUAL_PLAYER_SIZE = 110;
       }
-      const VISUAL_PLAYER_SIZE = 120 * scaleFactor;
       if (playerImageRef.current && playerImageRef.current.complete) {
         ctx.drawImage(
           playerImageRef.current,
