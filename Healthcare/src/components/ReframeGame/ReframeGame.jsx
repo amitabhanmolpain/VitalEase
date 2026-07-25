@@ -139,6 +139,7 @@ const ReframeGame = ({ onExit }) => {
   
   // Legend HUD box control
   const [showLegend, setShowLegend] = useState(true);
+  const [showMap, setShowMap] = useState(false);
 
   // Retro Sprite States
   const [processedSprites, setProcessedSprites] = useState({});
@@ -1479,6 +1480,100 @@ const ReframeGame = ({ onExit }) => {
             allow="autoplay; encrypted-media"
             className="absolute pointer-events-none opacity-0 invisible"
           />
+        )}
+
+        {/* Hidden YouTube Iframe player for background music in Temple (Floor 1 & Floor 2) */}
+        {(currentRoom === 'temple_floor_1' || currentRoom === 'temple_floor_2') && (
+          <iframe
+            width="1"
+            height="1; autoplay"
+            src="https://www.youtube.com/embed/8sYK7lm3UKg?autoplay=1&loop=1&playlist=8sYK7lm3UKg"
+            title="Temple Music"
+            frameBorder="0"
+            allow="autoplay; encrypted-media"
+            className="absolute pointer-events-none opacity-0 invisible"
+          />
+        )}
+
+        {/* Toggle Map Button (Top-Right) */}
+        <button
+          onClick={() => setShowMap(!showMap)}
+          className="absolute top-6 right-6 z-10 px-4 py-2 bg-slate-900/95 border-2 border-slate-700 hover:border-slate-500 text-teal-400 font-pixel-body text-xs rounded-none backdrop-blur-sm transition shadow-md"
+        >
+          {showMap ? "CLOSE MAP" : "WORLD MAP"}
+        </button>
+
+        {/* World Map Overlay */}
+        {showMap && (
+          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-20 flex items-center justify-center p-6 animate-fade-in">
+            <div className="bg-slate-900 border-8 border-slate-700 rounded-none p-6 max-w-2xl w-full flex flex-col gap-4 shadow-2xl relative">
+              <button
+                onClick={() => setShowMap(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white font-pixel-body font-bold text-sm px-2 bg-slate-950 border border-slate-700 hover:border-slate-500 rounded-none transition"
+              >
+                X
+              </button>
+              
+              <h3 className="font-pixel-title text-teal-400 text-lg border-b border-slate-800 pb-2">
+                REFRAME CASTLE MAP
+              </h3>
+
+              <div className="grid grid-cols-3 gap-4 border-2 border-slate-800 p-4 bg-slate-950 font-pixel-body text-[10px] leading-relaxed">
+                
+                {/* Column 1: Palace Wing */}
+                <div className="border border-slate-800 p-2 flex flex-col gap-2 rounded-none">
+                  <span className="text-purple-400 font-bold border-b border-slate-900 pb-1">PALACE WING</span>
+                  <div className={`p-1 border ${currentRoom === 'left_wing_floor_3' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Royal Library
+                  </div>
+                  <div className={`p-1 border ${currentRoom === 'left_wing_floor_2' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Palace Suite
+                  </div>
+                  <div className={`p-1 border ${currentRoom === 'left_wing' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Palace Lobby
+                  </div>
+                </div>
+
+                {/* Column 2: Main Hotel */}
+                <div className="border border-slate-800 p-2 flex flex-col gap-2 rounded-none justify-between">
+                  <div>
+                    <span className="text-teal-400 font-bold border-b border-slate-900 pb-1">MAIN HOTEL</span>
+                    <div className={`p-1 border mt-1 ${currentRoom === 'rooftop' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                      • Rooftop Deck
+                    </div>
+                    <div className={`p-1 border ${currentRoom === 'lobby' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                      • Hotel Lobby
+                    </div>
+                    <div className={`p-1 border ${currentRoom === 'distortion_room' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                      • Distortion Suite
+                    </div>
+                  </div>
+                  <div className={`p-2 border text-center ${currentRoom === 'outside' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Courtyard (Gates)
+                  </div>
+                </div>
+
+                {/* Column 3: Sacred Temple */}
+                <div className="border border-slate-800 p-2 flex flex-col gap-2 rounded-none">
+                  <span className="text-amber-400 font-bold border-b border-slate-900 pb-1">SACRED TEMPLE</span>
+                  <div className="p-1 border border-slate-900 text-slate-600">
+                    • Sanctuary (Locked)
+                  </div>
+                  <div className={`p-1 border ${currentRoom === 'temple_floor_2' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Temple Floor 2
+                  </div>
+                  <div className={`p-1 border ${currentRoom === 'temple_floor_1' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
+                    • Temple Floor 1
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="text-[9px] font-pixel-body text-slate-400 leading-normal">
+                <span className="text-teal-400 font-bold">LEGEND:</span> Highlighted rooms indicate your current location. Walk to stairs or doorways to navigate between zones.
+              </div>
+            </div>
+          </div>
         )}
 
       </div>
