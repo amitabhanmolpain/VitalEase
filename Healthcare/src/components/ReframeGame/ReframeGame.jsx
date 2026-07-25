@@ -634,12 +634,6 @@ const ReframeGame = ({ onExit }) => {
 
       // Room-specific top (minY) bounds to restrict flying on walls/pillars
       let minY = 410; // Default floor line
-      if (currentRoom === 'left_wing') {
-        // Can walk up the left corridor to Suite or right corridor to Library
-        if ((newX >= 80 && newX <= 180) || (newX >= 600 && newX <= 700)) {
-          minY = 100;
-        }
-      }
 
       if (newY - r < minY) {
         return true;
@@ -865,8 +859,8 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'left_wing') {
-        // Left Door to Palace Suite Bedroom (top left X: [80, 180], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 80 && player.current.x <= 180) {
+        // Left Door to Palace Suite Bedroom (left wall X <= 175, Y: [430, 490])
+        if (player.current.x <= 175 && player.current.y >= 430 && player.current.y <= 490) {
           setCurrentRoom('left_wing_floor_2');
           player.current.x = 400;
           player.current.y = 480;
@@ -875,8 +869,8 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
 
-        // Right Door to Royal Library (top right X: [600, 700], Y < 120)
-        if (player.current.y < 120 && player.current.x >= 600 && player.current.x <= 700) {
+        // Right Door to Royal Library (right wall X >= 625, Y: [430, 490])
+        if (player.current.x >= 625 && player.current.y >= 430 && player.current.y <= 490) {
           setCurrentRoom('left_wing_floor_3');
           player.current.x = 400;
           player.current.y = 480;
@@ -899,9 +893,9 @@ const ReframeGame = ({ onExit }) => {
         // Exit back to Left Wing Lobby (bottom center X: [350, 450], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('left_wing');
-          // Spawn in front of the Palace Suite door in Left Wing Lobby
-          player.current.x = 130;
-          player.current.y = 140;
+          // Spawn in front of the Palace Suite door in Left Wing Lobby (safely on the floor)
+          player.current.x = 200;
+          player.current.y = 460;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -910,9 +904,9 @@ const ReframeGame = ({ onExit }) => {
         // Exit back to Left Wing Lobby (bottom center X: [350, 450], Y > 510)
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('left_wing');
-          // Spawn in front of the Library door in Left Wing Lobby
-          player.current.x = 650;
-          player.current.y = 140;
+          // Spawn in front of the Library door in Left Wing Lobby (safely on the floor)
+          player.current.x = 600;
+          player.current.y = 460;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
