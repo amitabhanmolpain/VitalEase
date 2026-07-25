@@ -155,6 +155,9 @@ const ReframeGame = ({ onExit }) => {
   const lobbyBgRef = useRef(null);
   const [lobbyBgLoaded, setLobbyBgLoaded] = useState(false);
 
+  const outsideBgRef = useRef(null);
+  const [outsideBgLoaded, setOutsideBgLoaded] = useState(false);
+
   // Themed private rooms image refs
   const roomBgImagesRef = useRef({});
   const [roomBgsLoaded, setRoomBgsLoaded] = useState(false);
@@ -200,9 +203,9 @@ const ReframeGame = ({ onExit }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, [stage]);
 
-  // Audio rain looping control (Only playing when outside on the rooftop)
+  // Audio rain looping control (Only playing when outside on the rooftop or courtyard)
   const startRainAudio = () => {
-    if (currentRoom !== 'rooftop') return; // Pause/mute indoors
+    if (currentRoom !== 'rooftop' && currentRoom !== 'outside') return; // Pause/mute indoors
     try {
       if (rainSourceRef.current) return; // Already running
 
@@ -258,7 +261,7 @@ const ReframeGame = ({ onExit }) => {
 
   // Manage rain audio loops dynamically during room transitions
   useEffect(() => {
-    if (stage === 'select' && currentRoom === 'rooftop') {
+    if (stage === 'select' && (currentRoom === 'rooftop' || currentRoom === 'outside')) {
       startRainAudio();
     } else {
       stopRainAudio();
@@ -267,7 +270,7 @@ const ReframeGame = ({ onExit }) => {
 
   // Bind audio to user input interactions to support Chrome/Safari autoplay rules
   useEffect(() => {
-    if (stage !== 'select' || currentRoom !== 'rooftop') {
+    if (stage !== 'select' || (currentRoom !== 'rooftop' && currentRoom !== 'outside')) {
       stopRainAudio();
       return;
     }
@@ -345,7 +348,7 @@ const ReframeGame = ({ onExit }) => {
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784918536/reframe_game/reframe_game/background_night.jpg";
+    img.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784977371/reframe_game/reframe_game/background_indian_rooftop.jpg";
     img.onload = () => {
       bgImageRef.current = img;
       setBgLoaded(true);
@@ -358,6 +361,15 @@ const ReframeGame = ({ onExit }) => {
     lobbyImg.onload = () => {
       lobbyBgRef.current = lobbyImg;
       setLobbyBgLoaded(true);
+    };
+
+    // Load Indian palace hotel outside background
+    const outsideImg = new Image();
+    outsideImg.crossOrigin = "anonymous";
+    outsideImg.src = "https://res.cloudinary.com/dxnpcuppm/image/upload/v1784977373/reframe_game/reframe_game/background_indian_outside.jpg";
+    outsideImg.onload = () => {
+      outsideBgRef.current = outsideImg;
+      setOutsideBgLoaded(true);
     };
 
     // Load themed private rooms
@@ -454,6 +466,11 @@ const ReframeGame = ({ onExit }) => {
     } else if (currentRoom === 'distortion_room') {
       // Keeps the player inside the private distortion room walls
       if (newX - r < 60 || newX + r > 740 || newY - r < 60 || newY + r > 540) {
+        return true;
+      }
+    } else if (currentRoom === 'outside') {
+      // Keeps the player strictly in the outside courtyard area
+      if (newX - r < 80 || newX + r > 720 || newY - r < 100 || newY + r > 550) {
         return true;
       }
     }
@@ -554,33 +571,24 @@ const ReframeGame = ({ onExit }) => {
         // Stepped onto the Lobby exit mat to leave building (centered at X=420, Y=560)
         // Trigger transition if Y is near the bottom edge (> 510) and X is within the door [380, 460]
         if (player.current.y > 510 && player.current.x >= 380 && player.current.x <= 460) {
+          setCurrentRoom('outside');
+          // Spawn player at the top center of the outside area, walking out of the hotel entrance door
+          player.current.x = 400;
+          player.current.y = 120;
           cancelAnimationFrame(animationFrameId.current);
-          stopRainAudio();
-          handleBack();
+          animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
         }
       } else if (currentRoom === 'distortion_room') {
-        // Stepped onto Lobby return door in private room (bottom-left archway center X=210, Y=540)
-        // Trigger transition if Y is near the bottom (> 500) and X is within the door [160, 260]
-        if (player.current.y > 500 && player.current.x >= 160 && player.current.x <= 260) {
+        // Stepped onto Lobby return door in private room (bottom-center ornate archway center X=490, Y=540)
+        // Trigger transition if Y is near the bottom (> 510) and X is within the door [350, 630]
+        if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 630) {
           setCurrentRoom('lobby');
           // Spawn player right in front of the door they just came out of (safely inside walkable bounds)
           if (selectedType === 'catastrophizing') { player.current.x = 240; player.current.y = 300; }
           else if (selectedType === 'black_and_white') { player.current.x = 240; player.current.y = 470; }
           else if (selectedType === 'mind_reading') { player.current.x = 560; player.current.y = 300; }
           else if (selectedType === 'overgeneralization') { player.current.x = 560; player.current.y = 470; }
-          cancelAnimationFrame(animationFrameId.current);
-          animationFrameId.current = requestAnimationFrame(gameLoop);
-          return;
-        }
-
-        // Stepped onto Rooftop direct door in private room (top-left archway center X=210, Y=60)
-        // Trigger transition if Y is near the top (< 120) and X is within the door [160, 260]
-        if (player.current.y < 120 && player.current.x >= 160 && player.current.x <= 260) {
-          setCurrentRoom('rooftop');
-          // Spawn safely on the rooftop deck outside the door trigger zone
-          player.current.x = 215;
-          player.current.y = 270;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -594,6 +602,25 @@ const ReframeGame = ({ onExit }) => {
           handleStartGame(selectedType);
           return;
         }
+      } else if (currentRoom === 'outside') {
+        // Stepped onto Lobby entrance door in the outside courtyard (top center X: [360, 440], Y < 120)
+        if (player.current.y < 120 && player.current.x >= 360 && player.current.x <= 440) {
+          setCurrentRoom('lobby');
+          // Spawn player next to the lobby entry door safely (above the exit mat trigger zone)
+          player.current.x = 420;
+          player.current.y = 480;
+          cancelAnimationFrame(animationFrameId.current);
+          animationFrameId.current = requestAnimationFrame(gameLoop);
+          return;
+        }
+
+        // Exit the game if player walks off the bottom edge of the outside area
+        if (player.current.y > 540) {
+          cancelAnimationFrame(animationFrameId.current);
+          stopRainAudio();
+          handleBack();
+          return;
+        }
       }
 
       // 3. Save canvas context and apply scaling to stretch 800x600 map to cover full viewport edge-to-edge
@@ -605,59 +632,13 @@ const ReframeGame = ({ onExit }) => {
       ctx.scale(scaleX, scaleY);
 
       if (currentRoom === 'rooftop') {
-        // Rooftop Outer Sky & Parallax Skyline rendering
-        ctx.fillStyle = '#050515';
-        ctx.fillRect(0, 0, 800, 600);
-
-        ctx.fillStyle = '#0a081a';
-        ctx.fillRect(40, 100, 80, 100);
-        ctx.fillRect(160, 70, 100, 130);
-        ctx.fillRect(320, 110, 70, 90);
-        ctx.fillRect(440, 60, 120, 140);
-        ctx.fillRect(620, 120, 80, 80);
-        ctx.fillRect(740, 90, 110, 110);
-
-        ctx.fillStyle = '#110e28';
-        ctx.fillRect(100, 120, 90, 80);
-        ctx.fillRect(240, 100, 110, 100);
-        ctx.fillRect(400, 130, 70, 70);
-        ctx.fillRect(520, 105, 120, 95);
-        ctx.fillRect(680, 125, 95, 75);
-
-        ctx.fillStyle = 'rgba(254, 240, 138, 0.3)';
-        const buildingLights = [
-          [120, 140], [150, 140], [120, 160],
-          [270, 120], [300, 120], [270, 140],
-          [540, 130], [580, 130], [560, 150]
-        ];
-        buildingLights.forEach(([lx, ly]) => {
-          ctx.fillRect(lx, ly, 3, 3);
-        });
-
-        // Draw Rooftop background image
+        // Indian-style Rooftop rendering
         if (bgImageRef.current && bgLoaded) {
           ctx.drawImage(bgImageRef.current, 0, 0, 800, 600);
+        } else {
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(0, 0, 800, 600);
         }
-
-        // Draw Translucent Water Puddles (rooftop only)
-        ctx.fillStyle = 'rgba(14, 165, 233, 0.12)';
-        const drawPuddle = (px, py, rx, ry) => {
-          ctx.beginPath();
-          ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI*2);
-          ctx.fill();
-        };
-        drawPuddle(180, 240, 30, 10);
-        drawPuddle(580, 320, 45, 15);
-        drawPuddle(380, 460, 35, 12);
-
-        // Draw spotlight cast cone (rooftop only)
-        ctx.fillStyle = 'rgba(253, 224, 71, 0.08)';
-        ctx.beginPath();
-        ctx.moveTo(100, 460);
-        ctx.lineTo(800, 150);
-        ctx.lineTo(800, 600);
-        ctx.closePath();
-        ctx.fill();
 
         // Draw Dynamic Weather Rain (rooftop only)
         if (!prefersReducedMotion && rainParticles.current.length > 0) {
@@ -692,6 +673,41 @@ const ReframeGame = ({ onExit }) => {
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.fillText("ROOFTOP", 420, 36);
+      } else if (currentRoom === 'outside') {
+        // Outside Courtyard rendering
+        if (outsideBgRef.current && outsideBgLoaded) {
+          ctx.drawImage(outsideBgRef.current, 0, 0, 800, 600);
+        } else {
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(0, 0, 800, 600);
+        }
+
+        // Draw visual labels for doorway interactions
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText("HOTEL LOBBY", 400, 135);
+        ctx.fillText("EXIT GAME", 400, 530);
+
+        // Draw Dynamic Weather Rain (outside courtyard has rain too!)
+        if (!prefersReducedMotion && rainParticles.current.length > 0) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+          ctx.lineWidth = 1;
+          rainParticles.current.forEach((p) => {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p.x - 2, p.y + p.len);
+            ctx.stroke();
+
+            p.y += p.speed * dt;
+            p.x -= (p.speed * 0.18) * dt;
+
+            if (p.y > 600) {
+              p.y = -20;
+              p.x = Math.random() * 800;
+            }
+          });
+        }
       } else if (currentRoom === 'distortion_room') {
         // Dedicated private themed room visualization from Nano Banana
         const themedRoomBg = roomBgImagesRef.current[selectedType];
@@ -708,12 +724,11 @@ const ReframeGame = ({ onExit }) => {
           ctx.fillRect(150, 200, 500, 260);
         }
 
-        // Render Room text labels dynamically over doors (positioned over the bottom-left and top-left visual door arches)
+        // Render Room text labels dynamically over doors (positioned over the bottom-center visual door arch)
         ctx.fillStyle = '#ffffff';
         ctx.font = '8px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.fillText("LOBBY EXIT", 210, 515);
-        ctx.fillText("ROOFTOP", 210, 110);
+        ctx.fillText("LOBBY EXIT", 490, 545);
 
         ctx.fillStyle = '#2dd4bf';
         ctx.font = '12px "Press Start 2P"';
@@ -784,7 +799,7 @@ const ReframeGame = ({ onExit }) => {
     return () => {
       cancelAnimationFrame(animationFrameId.current);
     };
-  }, [stage, bgLoaded, lobbyBgLoaded, roomBgsLoaded, prefersReducedMotion, canvasDimensions, currentRoom, selectedType]);
+  }, [stage, bgLoaded, lobbyBgLoaded, outsideBgLoaded, roomBgsLoaded, prefersReducedMotion, canvasDimensions, currentRoom, selectedType]);
 
   const handleStartGame = (typeKey) => {
     setSelectedType(typeKey);
