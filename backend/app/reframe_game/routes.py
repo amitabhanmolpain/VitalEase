@@ -1,7 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from .gemini_client import evaluate_reframe
 from .art_generator import generate_pixel_art
 import uuid
+import threading
 
 reframe_game_bp = Blueprint('reframe_game', __name__, url_prefix='/api/reframe-game')
 
@@ -104,3 +105,85 @@ def generate_art():
             "error": "Image Generation Failed",
             "message": str(e)
         }), 502
+
+# Global variables for caching Parler-TTS model
+parler_model = None
+parler_tokenizer = None
+parler_desc_tokenizer = None
+model_loading = False
+
+def load_model_background():
+    global parler_model, parler_tokenizer, parler_desc_tokenizer, model_loading
+    if parler_model is not None or model_loading:
+        return
+    model_loading = True
+    try:
+        print("[TTS] Loading Parler-TTS model in background thread...")
+        from parler_tts import ParlerTTSForConditionalGeneration
+        from transformers import AutoTokenizer
+        import torch
+        
+        model = ParlerTTSForConditionalGeneration.from_pretrained(
+            "parler-tts/parler-tts-mini-v1"
+        )
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = model.to(device)
+        
+        tokenizer = AutoTokenizer.from_pretrained("parler-tts/parler-tts-mini-v1")
+        desc_tokenizer = AutoTokenizer.from_pretrained(model.config.text_encoder._name_or_path)
+        
+        parler_model = model
+        parler_tokenizer = tokenizer
+        parler_desc_tokenizer = desc_tokenizer
+        print("[TTS] Parler-TTS model loaded successfully in background!")
+    except Exception as e:
+        print(f"[TTS Error] Failed to load Parler-TTS: {e}")
+    finally:
+        model_loading = False
+
+# Proactively trigger background download
+threading.Thread(target=load_model_background, daemon=True).start()
+
+@reframe_game_bp.route("/speak", methods=["POST"])
+def speak():
+    """
+    Generates speech using ParlerTTS (Indian-accented female voice) and returns WAV file.
+    """
+    global parler_model, parler_tokenizer, parler_desc_tokenizer
+    data = request.get_json() or {}
+    text = data.get("text", "How can I help you today?")
+    description = data.get("description", "Divya speaks in a warm, friendly Indian-accented English tone. The recording is of very high quality with no background noise.")
+    
+    if parler_model is None:
+        # Re-trigger background thread if it failed or died
+        threading.Thread(target=load_model_background, daemon=True).start()
+        return jsonify({
+            "error": "Model loading",
+            "message": "Parler-TTS model is loading. Please use browser fallback in the meantime."
+        }), 503
+
+    try:
+        import soundfile as sf
+        import os
+        import torch
+
+        input_ids = parler_desc_tokenizer(description, return_tensors="pt").input_ids
+        prompt_ids = parler_tokenizer(text, return_tensors="pt").input_ids
+
+        device = next(parler_model.parameters()).device
+        input_ids = input_ids.to(device)
+        prompt_ids = prompt_ids.to(device)
+
+        generation = parler_model.generate(input_ids=input_ids, prompt_input_ids=prompt_ids)
+        audio = generation.cpu().numpy().squeeze()
+        
+        output_path = os.path.join(os.path.dirname(__file__), "output.wav")
+        sf.write(output_path, audio, parler_model.config.sampling_rate)
+        
+        return send_file(output_path, mimetype="audio/wav")
+    except Exception as e:
+        print(f"[TTS Error] Failed generating ParlerTTS speech: {e}")
+        return jsonify({
+            "error": "Failed to generate speech",
+            "message": str(e)
+        }), 500
