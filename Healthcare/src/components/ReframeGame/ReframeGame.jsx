@@ -945,8 +945,8 @@ const ReframeGame = ({ onExit }) => {
         reply = "Please meet the monk in the temple he has the solution of your problem";
       } else if (lower.includes("really")) {
         reply = "I am Mira. I welcome seekers to the Reframe Castle.";
-      } else if (lower.includes("wrong")) {
-        reply = "Be careful. Challenges haunt these rooms.";
+      } else if (lower.includes("burnout") || lower.includes("tired")) {
+        reply = "Go to the left wing palace you will surely feel relaxed.";
       } else if (lower.includes("help")) {
         reply = "To clean your mind, step into the reflection doorways on the left.";
       }
@@ -2246,11 +2246,11 @@ const ReframeGame = ({ onExit }) => {
               <button 
                 onClick={() => {
                   playRetroClickSound();
-                  handleReceptionistChoice("Something's wrong here. Talk.");
+                  handleReceptionistChoice("I am facing burnout and very tired.");
                 }}
                 className="px-3 py-1.5 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
               >
-                2. Something's wrong here. Talk.
+                2. I am facing burnout and very tired.
               </button>
               <button 
                 onClick={() => {
