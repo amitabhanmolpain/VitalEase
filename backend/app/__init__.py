@@ -128,6 +128,9 @@ def create_app():
 
     from app.reframe_game import reframe_game_bp
     app.register_blueprint(reframe_game_bp)
+
+    from app.affirmation_room import affirmation_room_bp
+    app.register_blueprint(affirmation_room_bp)
     
     # Debug: Print all registered routes
     print('REGISTERED ROUTES:')

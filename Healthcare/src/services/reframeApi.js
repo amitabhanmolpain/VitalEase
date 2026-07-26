@@ -18,5 +18,10 @@ export const reframeAPI = {
   speak: async (text, description = "") => {
     const response = await apiClient.post('/reframe-game/speak', { text, description }, { responseType: 'blob' });
     return response.data;
+  },
+
+  respondAffirmation: async (player_statement, session_id = "") => {
+    const response = await apiClient.post('/affirmation-room/respond', { player_statement, session_id });
+    return response.data;
   }
 };
