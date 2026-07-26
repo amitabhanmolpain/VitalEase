@@ -750,6 +750,24 @@ const ReframeGame = ({ onExit }) => {
     if (stage !== 'select') return;
 
     const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        playRetroClickSound();
+        setDistortionDialogueOpen(false);
+        setReceptionistDialogueOpen(false);
+        setMonkDialogueOpen(false);
+        
+        // Reset states for overgeneralization room
+        setDistortionSessionActive(false);
+        setDistortionSpeaker("Saint");
+        setDistortionInputPlaceholder("Type what is bothering you...");
+        setDistortionAcknowledgment("");
+        setDistortionValidation("");
+        setDistortionGroundedHope("");
+        setDistortionIsCrisis(false);
+        setDistortionIsListening(false);
+        return;
+      }
+
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
         return;
       }
@@ -2403,7 +2421,7 @@ const ReframeGame = ({ onExit }) => {
 
         {/* Overgeneralization NPC Dialogue Box */}
         {currentRoom === 'distortion_room' && selectedType === 'overgeneralization' && distortionDialogueOpen && (
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-2xl bg-[#2d0f0f] border-4 border-amber-500 text-amber-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
+          <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-full max-w-2xl bg-[#2d0f0f] border-4 border-amber-500 text-amber-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
             
             {/* Header with Name, Role, Speaker and Leave button */}
             <div className="flex justify-between items-start border-b-2 border-amber-500/20 pb-2">
@@ -2542,30 +2560,6 @@ const ReframeGame = ({ onExit }) => {
               </div>
             )}
 
-            {/* Complete Reflection Button */}
-            {distortionSessionActive && !distortionIsCrisis && (
-              <div className="flex justify-center pt-2 border-t-2 border-amber-500/20">
-                <button 
-                  onClick={() => {
-                    playRetroClickSound();
-                    setDistortionDialogueOpen(false);
-                    // Reset states
-                    setDistortionSessionActive(false);
-                    setDistortionSpeaker("Saint");
-                    setDistortionInputPlaceholder("Type what is bothering you...");
-                    setDistortionAcknowledgment("");
-                    setDistortionValidation("");
-                    setDistortionGroundedHope("");
-                    setDistortionIsCrisis(false);
-                    setDistortionIsListening(false);
-                  }}
-                  className="px-6 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 border-4 border-teal-400 text-slate-950 font-pixel-body text-[10px] font-bold rounded-none shadow-none hover:scale-[1.02] transition"
-                >
-                  COMPLETE REFLECTION
-                </button>
-              </div>
-            )}
-
             {/* Input field for custom thoughts/reframes (Only shown when not in crisis) */}
             {!distortionIsCrisis && (
               <div className="flex gap-2 mt-2 pt-2 border-t-2 border-amber-500/20 items-stretch">
@@ -2617,6 +2611,27 @@ const ReframeGame = ({ onExit }) => {
                 >
                   SEND
                 </button>
+
+                {distortionSessionActive && (
+                  <button 
+                    onClick={() => {
+                      playRetroClickSound();
+                      setDistortionDialogueOpen(false);
+                      // Reset states
+                      setDistortionSessionActive(false);
+                      setDistortionSpeaker("Saint");
+                      setDistortionInputPlaceholder("Type what is bothering you...");
+                      setDistortionAcknowledgment("");
+                      setDistortionValidation("");
+                      setDistortionGroundedHope("");
+                      setDistortionIsCrisis(false);
+                      setDistortionIsListening(false);
+                    }}
+                    className="px-4 bg-gradient-to-r from-teal-500 to-emerald-600 border-2 border-teal-400 text-slate-950 font-pixel-body text-xs font-bold rounded-none hover:scale-[1.02] transition"
+                  >
+                    DONE
+                  </button>
+                )}
               </div>
             )}
           </div>
