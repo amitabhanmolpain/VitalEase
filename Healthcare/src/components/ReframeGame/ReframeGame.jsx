@@ -342,6 +342,18 @@ const ReframeGame = ({ onExit }) => {
   const radioSpriteRef = useRef(null);
   const [radioSpriteLoaded, setRadioSpriteLoaded] = useState(false);
   const radioBounceTick = useRef(0);
+  // Which of the 4 channels is active (null = none, 0-3 = channel index)
+  const [activeChannel, setActiveChannel] = useState(null);
+  const palaceRadioPlayerRef = useRef(null);
+  const palaceRadioContainerRef = useRef(null);
+
+  // 4 Radio Channels with YouTube video IDs and metadata
+  const RADIO_CHANNELS = [
+    { label: "🎻 Kal Ho Naa Ho",      videoId: "lxG7-7SK7og", desc: "Soulful Bollywood classic",         color: "#d97706" },
+    { label: "🎹 Tere Bina",          videoId: "V2UonJbJmD0", desc: "Soft melody to ease the heart",     color: "#b45309" },
+    { label: "🌸 Dil Dhadakne Do",    videoId: "1uC6t_wT_D0", desc: "Gentle waves of calm",              color: "#92400e" },
+    { label: "🌙 Lag Jaa Gale",       videoId: "QGe0wLjJDqA", desc: "Timeless lullaby for the soul",     color: "#78350f" },
+  ];
 
   useEffect(() => {
     if (!window.YT) {
@@ -402,6 +414,63 @@ const ReframeGame = ({ onExit }) => {
       }
     }
   }, [currentRoom, stage]);
+
+  // Palace Radio — play/stop YouTube channel based on activeChannel
+  useEffect(() => {
+    if (currentRoom !== 'left_wing_floor_2' || activeChannel === null) {
+      // Stop any playing radio
+      if (palaceRadioPlayerRef.current) {
+        try { palaceRadioPlayerRef.current.destroy(); } catch (e) {}
+        palaceRadioPlayerRef.current = null;
+      }
+      if (palaceRadioContainerRef.current) {
+        palaceRadioContainerRef.current.innerHTML = '';
+      }
+      return;
+    }
+
+    if (!palaceRadioContainerRef.current) return;
+    palaceRadioContainerRef.current.innerHTML = '';
+
+    const playerDiv = document.createElement('div');
+    playerDiv.id = 'palace-radio-player';
+    palaceRadioContainerRef.current.appendChild(playerDiv);
+
+    const channel = RADIO_CHANNELS[activeChannel];
+    const videoId = channel.videoId;
+
+    const initPalacePlayer = () => {
+      if (palaceRadioPlayerRef.current) {
+        try { palaceRadioPlayerRef.current.destroy(); } catch (e) {}
+      }
+      palaceRadioPlayerRef.current = new window.YT.Player('palace-radio-player', {
+        height: '1',
+        width: '1',
+        videoId,
+        playerVars: { autoplay: 1, loop: 1, playlist: videoId, controls: 0, mute: 0 },
+        events: {
+          onReady: (event) => event.target.setVolume(40)
+        }
+      });
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPalacePlayer();
+    } else {
+      const prevReady = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (prevReady) prevReady();
+        initPalacePlayer();
+      };
+    }
+
+    return () => {
+      if (palaceRadioPlayerRef.current) {
+        try { palaceRadioPlayerRef.current.destroy(); } catch (e) {}
+        palaceRadioPlayerRef.current = null;
+      }
+    };
+  }, [activeChannel, currentRoom]);
 
   // Canvas movement references
   const canvasRef = useRef(null);
@@ -792,6 +861,7 @@ const ReframeGame = ({ onExit }) => {
         setMonkDialogueOpen(false);
         setPlayerDialogueOpen(false);
         setRadioDialogueOpen(false);
+        setActiveChannel(null);  // stop palace radio music
         
         // Reset states for overgeneralization room
         setDistortionSessionActive(false);
@@ -987,8 +1057,9 @@ const ReframeGame = ({ onExit }) => {
         setReceptionistSpeaking(false);
         triggerReceptionistSpeech(reply);
       } else {
-        setReceptionistSpeaking(true);
-        setReceptionistSubtitle("Let me think...");
+        // Don't show speaking ring/bubble while waiting for AI — just silently fetch
+        setReceptionistSpeaking(false);
+        setReceptionistSubtitle("");
         try {
           const res = await reframeAPI.respondReceptionist(choiceText);
           triggerReceptionistSpeech(res.response);
@@ -1504,8 +1575,12 @@ const ReframeGame = ({ onExit }) => {
           player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
-          // Radio NPC greets the player when they enter
+          // Radio greets the player immediately on entering the Palace Suite
           hasTriggeredRadioSpeech.current = false;
+          setActiveChannel(null);  // reset any prior channel
+          setTimeout(() => {
+            triggerRadioSpeech("I'm here to make you feel relaxed! Click on the radio you want to listen to.");
+          }, 600); // small delay so room fade-in finishes first
           return;
         }
 
@@ -1531,12 +1606,12 @@ const ReframeGame = ({ onExit }) => {
           return;
         }
       } else if (currentRoom === 'left_wing_floor_2') {
-        // Trigger magical radio greeting when player walks near it (X: [550,750], Y: [350,500])
+        // Proximity trigger: re-open dialogue if player walks close to radio
         const isNearRadio = player.current.x >= 550 && player.current.x <= 750 &&
                             player.current.y >= 350 && player.current.y <= 500;
         if (isNearRadio) {
           if (!hasTriggeredRadioSpeech.current) {
-            triggerRadioSpeech("What can I play for you to make you relaxed?");
+            triggerRadioSpeech("I'm here to make you feel relaxed! Click on the radio you want to listen to.");
             hasTriggeredRadioSpeech.current = true;
           }
         } else {
@@ -1547,8 +1622,9 @@ const ReframeGame = ({ onExit }) => {
         if (player.current.y > 510 && player.current.x >= 350 && player.current.x <= 450) {
           setCurrentRoom('left_wing');
           setRadioDialogueOpen(false);
+          setActiveChannel(null);  // stop music when leaving
           hasTriggeredRadioSpeech.current = false;
-          // Spawn in front of the Palace Suite door in Left Wing Lobby (safely on the floor)
+          // Spawn in front of the Palace Suite door in Left Wing Lobby
           player.current.x = 200;
           player.current.y = 460;
           cancelAnimationFrame(animationFrameId.current);
@@ -1680,8 +1756,8 @@ const ReframeGame = ({ onExit }) => {
         ctx.textAlign = 'center';
         ctx.fillText("ROOFTOP", 420, 36);
 
-        // Visual speaking indicator (subtle glowing ring around the receptionist)
-        if (receptionistSpeaking) {
+        // Visual speaking indicator (subtle glowing ring around the receptionist) — only when actively speaking real dialogue
+        if (receptionistSpeaking && receptionistSubtitle && receptionistSubtitle.length > 0) {
           ctx.save();
           ctx.strokeStyle = 'rgba(45, 212, 191, 0.6)';
           ctx.lineWidth = 2;
@@ -1693,9 +1769,7 @@ const ReframeGame = ({ onExit }) => {
           ctx.restore();
 
           // Draw the subtitle speech bubble near the receptionist
-          if (receptionistSubtitle) {
-            drawSpeechBubble(ctx, receptionistSubtitle, 260, 180);
-          }
+          drawSpeechBubble(ctx, receptionistSubtitle, 260, 180);
         }
       } else if (currentRoom === 'outside') {
         // Outside Courtyard rendering
@@ -2560,27 +2634,30 @@ const ReframeGame = ({ onExit }) => {
           </div>
         )}
 
-        {/* Magical Radio Dialogue Box (Palace Suite) */}
+        {/* Magical Radio Dialogue Box (Palace Suite) — 4 real channels */}
         {currentRoom === 'left_wing_floor_2' && radioDialogueOpen && (
-          <div className="absolute bottom-6 right-6 w-full max-w-md bg-[#0d1f2d] border-4 border-teal-400 text-teal-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
+          <div className="absolute bottom-6 right-6 w-full max-w-lg bg-[#0a1a26] border-4 border-teal-400 text-teal-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
             
+            {/* Hidden YouTube player container */}
+            <div ref={palaceRadioContainerRef} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
+
             {/* Header */}
-            <div className="flex justify-between items-start border-b-2 border-teal-400/20 pb-2">
+            <div className="flex justify-between items-start border-b-2 border-teal-400/30 pb-2">
               <div className="flex items-center gap-2">
-                <span className="text-xl animate-bounce">📻</span>
+                <span className="text-2xl" style={{ animation: activeChannel !== null ? 'spin 2s linear infinite' : 'bounce 1s infinite' }}>📻</span>
                 <div>
-                  <h4 className="font-bold text-lg font-pixel-body text-teal-300">Magical Radio</h4>
-                  <span className="text-[10px] text-teal-300/70 font-pixel-body">your palace companion</span>
+                  <h4 className="font-bold text-base font-pixel-body text-teal-300">Magical Radio</h4>
+                  <span className="text-[9px] text-teal-300/60 font-pixel-body">your palace companion ✦</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => {
                     playRetroClickSound();
-                    triggerRadioSpeech(radioSubtitle || "What can I play for you to make you relaxed?");
+                    triggerRadioSpeech(radioSubtitle || "I'm here to make you feel relaxed! Click on the radio you want to listen to.");
                   }}
                   className="px-2 py-1 bg-[#0a2e38] border-2 border-teal-400 hover:bg-[#0e3d4d] text-teal-200 transition rounded-none font-bold text-sm"
-                  title="Replay audio"
+                  title="Replay greeting"
                 >
                   🔊
                 </button>
@@ -2596,39 +2673,82 @@ const ReframeGame = ({ onExit }) => {
               </div>
             </div>
 
-            {/* Dialogue text */}
-            <div className="py-1">
-              <p className="text-sm font-semibold leading-relaxed font-pixel-body text-teal-100">
-                ♪ "{radioSubtitle || "What can I play for you to make you relaxed?"}" ♪
+            {/* Radio speech / subtitle */}
+            <div className="py-0.5">
+              <p className="text-xs font-semibold leading-relaxed font-pixel-body text-teal-100 italic">
+                ♪ "{radioSubtitle || "I'm here to make you feel relaxed! Click on the radio you want to listen to."}" ♪
               </p>
               {radioSpeaking && (
-                <span className="text-[9px] text-yellow-400 font-bold uppercase tracking-wider animate-pulse mt-2 block font-pixel-body">
-                  ♫ PLAYING...
+                <span className="text-[9px] text-yellow-400 font-bold uppercase tracking-wider animate-pulse mt-1 block font-pixel-body">
+                  ▶ speaking...
                 </span>
               )}
             </div>
 
-            {/* Musical genre choices */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t-2 border-teal-400/20">
-              {["🎵 Calm Indian Classical", "🎶 Soft Lo-fi Beats", "🪘 Soothing Drums", "🎸 Gentle Acoustic"].map((genre, i) => (
-                <button
-                  key={i}
-                  onClick={() => {
-                    playRetroClickSound();
-                    const replies = [
-                      "Ah, a wonderful choice! Let the ancient ragas wash over your soul...",
-                      "Lo-fi it is! Close your eyes and let the beats drift away your worries.",
-                      "The gentle drum will ground you. Feel each beat in your chest, steady and sure.",
-                      "Beautiful. Let the soft strings carry your heavy thoughts away, like leaves on a breeze."
-                    ];
-                    triggerRadioSpeech(replies[i]);
-                  }}
-                  className="px-3 py-1.5 bg-[#0a2e38] border-2 border-teal-400 hover:bg-[#0e3d4d] text-xs font-bold font-pixel-body text-teal-200 rounded-none transition"
-                >
-                  {genre}
-                </button>
-              ))}
+            {/* 4 Channel Cards */}
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t-2 border-teal-400/20">
+              {RADIO_CHANNELS.map((ch, i) => {
+                const isActive = activeChannel === i;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => {
+                      playRetroClickSound();
+                      if (isActive) {
+                        // Toggle off
+                        setActiveChannel(null);
+                        triggerRadioSpeech("Okay, I'll stop the music. Let me know when you want to listen again!");
+                      } else {
+                        setActiveChannel(i);
+                        const replies = [
+                          "Playing Indian Classical now... Let the ancient ragas heal your soul. 🎵",
+                          "Lo-fi Chill is on! Close your eyes and let the beats carry you away... 🎶",
+                          "Rain & Nature sounds playing... Let the gentle rain wash away your worries. 🌿",
+                          "Acoustic Vibes starting now! Let the warm strings ease your heart. 🎸"
+                        ];
+                        triggerRadioSpeech(replies[i]);
+                      }
+                    }}
+                    style={{ borderColor: isActive ? ch.color : 'rgba(45,212,191,0.4)', backgroundColor: isActive ? ch.color + '33' : '#0a2030' }}
+                    className={`relative flex flex-col items-start gap-1 px-3 py-2.5 border-2 text-left transition-all duration-200 rounded-none hover:brightness-125 ${isActive ? 'ring-2 ring-yellow-400/60' : ''}`}
+                  >
+                    <span className="text-xs font-bold font-pixel-body" style={{ color: isActive ? '#fef08a' : '#5eead4' }}>
+                      {ch.label}
+                    </span>
+                    <span className="text-[9px] font-pixel-body" style={{ color: isActive ? '#fde68a' : '#94a3b8' }}>
+                      {ch.desc}
+                    </span>
+                    {isActive && (
+                      <span className="absolute top-1 right-2 text-[8px] text-yellow-300 font-bold font-pixel-body animate-pulse">
+                        ♫ NOW PLAYING
+                      </span>
+                    )}
+                    {isActive && (
+                      <div className="flex gap-0.5 mt-1">
+                        {[1,2,3,4,5].map(b => (
+                          <div key={b} className="w-0.5 rounded-sm animate-pulse"
+                            style={{ height: `${6 + Math.random() * 8}px`, backgroundColor: ch.color, animationDelay: `${b * 0.1}s` }} />
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Stop button shown when a channel is active */}
+            {activeChannel !== null && (
+              <button
+                onClick={() => {
+                  playRetroClickSound();
+                  setActiveChannel(null);
+                  triggerRadioSpeech("Music stopped. Take your time to rest. I'm always here when you need me! 🌙");
+                }}
+                className="w-full py-1.5 bg-rose-900/40 border-2 border-rose-400 text-rose-200 font-pixel-body text-[10px] hover:bg-rose-900/70 transition rounded-none font-bold"
+              >
+                ⏹ STOP MUSIC
+              </button>
+            )}
           </div>
         )}
 
