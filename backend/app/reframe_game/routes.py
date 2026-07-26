@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, send_file
-from .gemini_client import evaluate_reframe
+from .gemini_client import evaluate_reframe, generate_receptionist_response
 from .art_generator import generate_pixel_art
 import uuid
 import threading
@@ -187,3 +187,28 @@ def speak():
             "error": "Failed to generate speech",
             "message": str(e)
         }), 500
+
+@reframe_game_bp.route('/receptionist-respond', methods=['POST'])
+def receptionist_respond():
+    """
+    POST /api/reframe-game/receptionist-respond
+    Body: {"player_statement": str}
+    """
+    try:
+        data = request.get_json() or {}
+        player_statement = data.get("player_statement")
+        if not player_statement:
+            return jsonify({
+                "error": "Bad Request",
+                "message": "Missing required field 'player_statement'."
+            }), 400
+
+        response_text = generate_receptionist_response(player_statement)
+        return jsonify({"response": response_text}), 200
+
+    except Exception as e:
+        print(f"[Receptionist Response Error] {e}")
+        return jsonify({
+            "error": "Internal Server Error",
+            "message": "Mira is momentarily busy. Please try again."
+        }), 502

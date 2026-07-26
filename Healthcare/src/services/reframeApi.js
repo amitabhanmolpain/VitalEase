@@ -23,5 +23,10 @@ export const reframeAPI = {
   respondAffirmation: async (player_statement, session_id = "") => {
     const response = await apiClient.post('/affirmation-room/respond', { player_statement, session_id });
     return response.data;
+  },
+
+  respondReceptionist: async (player_statement) => {
+    const response = await apiClient.post('/reframe-game/receptionist-respond', { player_statement });
+    return response.data;
   }
 };

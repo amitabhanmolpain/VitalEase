@@ -923,20 +923,33 @@ const ReframeGame = ({ onExit }) => {
 
   const handleReceptionistChoice = (choiceText) => {
     console.log("Selected/sent choice:", choiceText);
-    let reply = "I understand. How else can I help?";
-    if (choiceText.toLowerCase().includes("ptsd")) {
-      reply = "Please meet the monk in the temple he has the solution of your problem";
-    } else if (choiceText.toLowerCase().includes("really")) {
-      reply = "I am Mira. I welcome seekers to the Reframe Castle.";
-    } else if (choiceText.toLowerCase().includes("wrong")) {
-      reply = "Be careful. Challenges haunt these rooms.";
-    } else if (choiceText.toLowerCase().includes("help")) {
-      reply = "To clean your mind, step into the reflection doorways on the left.";
-    }
+    triggerPlayerSpeech(choiceText, async () => {
+      let reply = "";
+      const lower = choiceText.toLowerCase();
+      if (lower.includes("ptsd")) {
+        reply = "Please meet the monk in the temple he has the solution of your problem";
+      } else if (lower.includes("really")) {
+        reply = "I am Mira. I welcome seekers to the Reframe Castle.";
+      } else if (lower.includes("wrong")) {
+        reply = "Be careful. Challenges haunt these rooms.";
+      } else if (lower.includes("help")) {
+        reply = "To clean your mind, step into the reflection doorways on the left.";
+      }
 
-    setReceptionistSpeaking(false);
-    triggerPlayerSpeech(choiceText, () => {
-      triggerReceptionistSpeech(reply);
+      if (reply) {
+        setReceptionistSpeaking(false);
+        triggerReceptionistSpeech(reply);
+      } else {
+        setReceptionistSpeaking(true);
+        setReceptionistSubtitle("Let me think...");
+        try {
+          const res = await reframeAPI.respondReceptionist(choiceText);
+          triggerReceptionistSpeech(res.response);
+        } catch (err) {
+          console.error("Lobby AI Error:", err);
+          triggerReceptionistSpeech("I understand. Take your time to look around, or step into one of the reflection rooms on the left to start reframing.");
+        }
+      }
     });
   };
 

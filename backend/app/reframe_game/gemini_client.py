@@ -77,3 +77,36 @@ def get_fallback_evaluation(player_reframe: str) -> dict:
         "feedback": "CBT Fallback: You are practicing valuable reframing skills by identifying realistic alternatives to negative thoughts.",
         "monster_response": "Your logical reasoning is making my grip fade..."
     }
+
+def generate_receptionist_response(player_statement: str) -> str:
+    """
+    Generates a warm, in-character response from Mira the receptionist using Gemini API.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return "I understand. Take your time to look around, or step into one of the reflection rooms on the left to start reframing."
+
+    try:
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+You are Mira, the warm and welcoming receptionist of the Reframe Castle.
+The player is a seeker exploring the castle or dealing with difficult emotions.
+They have just typed: "{player_statement}"
+
+Respond to them in character as Mira:
+- Keep the response short (1-2 sentences), warm, and supportive.
+- Do not be clinical, diagnostic, or preachy.
+- Direct them gently to explore the lobby, meet the monk in the temple, or enter one of the reflection suites on the left to begin reframing their thoughts.
+"""
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+
+        return response.text.strip()
+
+    except Exception as e:
+        print(f"[Gemini API Exception in Mira Response] Error: {e}")
+        return "I understand. Take your time to look around, or step into one of the reflection rooms on the left to start reframing."
