@@ -306,6 +306,19 @@ const ReframeGame = ({ onExit }) => {
   const [monkSubtitle, setMonkSubtitle] = useState("");
   const hasTriggeredMonkSpeech = useRef(false);
 
+  // Distortion Room Dialogue States
+  const [distortionDialogueOpen, setDistortionDialogueOpen] = useState(false);
+  const [distortionSubtitle, setDistortionSubtitle] = useState("");
+
+  // Inline game loop states for Overgeneralization Saint dialogue
+  const [distortionSessionActive, setDistortionSessionActive] = useState(false);
+  const [distortionIntensity, setDistortionIntensity] = useState(100);
+  const [distortionSpeaker, setDistortionSpeaker] = useState("Saint"); // "Saint" or "You"
+  const [distortionFeedback, setDistortionFeedback] = useState("");
+  const [distortionInputPlaceholder, setDistortionInputPlaceholder] = useState("Type what is bothering you...");
+  const [distortionIsLoading, setDistortionIsLoading] = useState(false);
+  const [distortionCurrentChallenge, setDistortionCurrentChallenge] = useState("");
+
   // Breathing Exercise states
   const [breathingExerciseActive, setBreathingExerciseActive] = useState(false);
   const hasTriggeredFloor2Breathing = useRef(false);
@@ -733,6 +746,9 @@ const ReframeGame = ({ onExit }) => {
     if (stage !== 'select') return;
 
     const handleKeyDown = (e) => {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
       const key = e.key.toLowerCase();
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(key)) {
         e.preventDefault();
@@ -741,6 +757,9 @@ const ReframeGame = ({ onExit }) => {
     };
 
     const handleKeyUp = (e) => {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
       const key = e.key.toLowerCase();
       keysPressed.current[key] = false;
     };
@@ -888,9 +907,9 @@ const ReframeGame = ({ onExit }) => {
     } else if (choiceText.toLowerCase().includes("really")) {
       reply = "I am Mira. I welcome seekers to the Reframe Castle.";
     } else if (choiceText.toLowerCase().includes("wrong")) {
-      reply = "Be careful. Cognitive distortions haunt these rooms.";
+      reply = "Be careful. Challenges haunt these rooms.";
     } else if (choiceText.toLowerCase().includes("help")) {
-      reply = "To clean your mind, step into the distortion doorways on the left.";
+      reply = "To clean your mind, step into the reflection doorways on the left.";
     }
 
     setReceptionistSpeaking(false);
@@ -1130,7 +1149,11 @@ const ReframeGame = ({ onExit }) => {
       let dx = 0;
       let dy = 0;
 
-      const isPressed = (k1, k2) => keysPressed.current[k1] || keysPressed.current[k2];
+      const isTyping = document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA');
+      const isPressed = (k1, k2) => {
+        if (isTyping) return false;
+        return keysPressed.current[k1] || keysPressed.current[k2];
+      };
       const up = isPressed('w', 'arrowup');
       const down = isPressed('s', 'arrowdown');
       const left = isPressed('a', 'arrowleft');
@@ -1240,6 +1263,20 @@ const ReframeGame = ({ onExit }) => {
             player.current.x = 190;
             player.current.y = 175;
           }
+          if (enteredRoomType === 'overgeneralization') {
+            setDistortionDialogueOpen(true);
+            setDistortionSubtitle("What is bothering you my child?");
+            setDistortionSessionActive(false);
+            setDistortionIntensity(100);
+            setDistortionSpeaker("Saint");
+            setDistortionFeedback("");
+            setDistortionInputPlaceholder("Type what is bothering you...");
+            setDistortionIsLoading(false);
+            setDistortionCurrentChallenge("");
+            setTimeout(() => {
+              fallbackMonkWebSpeech("What is bothering you my child?");
+            }, 300);
+          }
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
           return;
@@ -1276,6 +1313,7 @@ const ReframeGame = ({ onExit }) => {
           : (player.current.y <= 160 && player.current.x >= 140 && player.current.x <= 240);
 
         if (isExiting) {
+          setDistortionDialogueOpen(false);
           setCurrentRoom('lobby');
           // Spawn player right in front of the door they just came out of (safely inside walkable bounds)
           if (selectedType === 'catastrophizing') { player.current.x = 240; player.current.y = 300; }
@@ -1292,7 +1330,12 @@ const ReframeGame = ({ onExit }) => {
         if (npcDist < 24) {
           cancelAnimationFrame(animationFrameId.current);
           keysPressed.current = {};
-          handleStartGame(selectedType);
+          if (selectedType === 'overgeneralization') {
+            setDistortionDialogueOpen(true);
+            animationFrameId.current = requestAnimationFrame(gameLoop);
+          } else {
+            handleStartGame(selectedType);
+          }
           return;
         }
       } else if (currentRoom === 'outside') {
@@ -1694,30 +1737,39 @@ const ReframeGame = ({ onExit }) => {
           ctx.fillText("LOBBY EXIT", 190, 150);
         }
 
-        ctx.fillStyle = '#2dd4bf';
-        ctx.font = '12px "Press Start 2P"';
-        ctx.fillText(preProcessDistortionName(selectedType).toUpperCase(), 400, 60);
+        // Room titles commented out to remove distortion labels
+        // ctx.fillStyle = '#2dd4bf';
+        // ctx.font = '12px "Press Start 2P"';
+        // ctx.fillText(preProcessDistortionName(selectedType).toUpperCase(), 400, 60);
 
-        // Draw a beautiful pulsating glowing magical sphere in the center of the room instead of the well monster
-        const breathingFactor = 1 + Math.sin(timestamp / 300) * 0.08;
-        const radius = 16 * breathingFactor;
-        
-        ctx.save();
-        // Inner core
-        ctx.fillStyle = '#2dd4bf'; // teal glow
-        ctx.shadowColor = '#14b8a6';
-        ctx.shadowBlur = 15;
-        ctx.beginPath();
-        ctx.arc(400, 200, radius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Outer aura ring
-        ctx.strokeStyle = 'rgba(45, 212, 191, 0.4)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(400, 200, radius + 6 + Math.sin(timestamp / 150) * 2, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
+        if (selectedType === 'overgeneralization') {
+          // Draw only the saint sprite (no red circle or red aura)
+          const overgenImg = spriteImagesRef.current['overgeneralization'];
+          if (overgenImg && overgenImg.complete) {
+            ctx.drawImage(overgenImg, 400 - 25, 200 - 25, 50, 50);
+          }
+        } else {
+          // Draw a beautiful pulsating glowing magical sphere in the center of the room instead of the well monster
+          const breathingFactor = 1 + Math.sin(timestamp / 300) * 0.08;
+          const radius = 16 * breathingFactor;
+          
+          ctx.save();
+          // Inner core
+          ctx.fillStyle = '#2dd4bf'; // teal glow
+          ctx.shadowColor = '#14b8a6';
+          ctx.shadowBlur = 15;
+          ctx.beginPath();
+          ctx.arc(400, 200, radius, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Outer aura ring
+          ctx.strokeStyle = 'rgba(45, 212, 191, 0.4)';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(400, 200, radius + 6 + Math.sin(timestamp / 150) * 2, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
 
         // Window lightning animations (thunder flashes inside window frames)
         const THEMED_ROOM_WINDOWS = [
@@ -1853,13 +1905,84 @@ const ReframeGame = ({ onExit }) => {
     };
   }, [stage, bgLoaded, lobbyBgLoaded, outsideBgLoaded, temple1BgLoaded, temple2BgLoaded, leftWingBgLoaded, leftWing2BgLoaded, leftWing3BgLoaded, roomBgsLoaded, prefersReducedMotion, canvasDimensions, currentRoom, selectedType, lockAlertText]);
 
-  const handleStartGame = (typeKey) => {
+  const handleSaintSend = async (text) => {
+    if (!text.trim() || distortionIsLoading) return;
+    const typedText = text.trim();
+
+    if (!distortionSessionActive) {
+      // Step 1: Player enters their negative thought
+      setDistortionSpeaker("You");
+      setDistortionSubtitle(typedText);
+      setDistortionIsLoading(true);
+
+      setTimeout(() => {
+        // Step 2: After a brief moment, the Saint challenges the player with the negative voice statement
+        setDistortionSessionActive(true);
+        setDistortionSpeaker("Saint");
+        const challengeLine = DEFAULT_OPENING_LINES['overgeneralization'] || "You always mess things up; this time won't be any different.";
+        setDistortionCurrentChallenge(challengeLine);
+        setDistortionSubtitle(challengeLine);
+        setDistortionInputPlaceholder("Type your healthy reframe here...");
+        setDistortionIsLoading(false);
+        fallbackMonkWebSpeech(challengeLine);
+      }, 1500);
+    } else {
+      // Step 3: Player submits their reframe
+      setDistortionSpeaker("You");
+      setDistortionSubtitle(typedText);
+      setDistortionIsLoading(true);
+
+      try {
+        const response = await reframeAPI.judgeReframe({
+          distortion_type: 'overgeneralization',
+          monster_statement: distortionCurrentChallenge,
+          player_reframe: typedText
+        });
+
+        const damageValue = response.damage || 0;
+        const feedbackText = response.feedback;
+        const nextMonsterResponse = response.monster_response;
+
+        const newIntensity = Math.max(0, distortionIntensity - damageValue);
+        setDistortionIntensity(newIntensity);
+        setDistortionFeedback(feedbackText);
+
+        setTimeout(() => {
+          setDistortionSpeaker("Saint");
+          setDistortionIsLoading(false);
+
+          if (newIntensity <= 15) {
+            const victoryText = "Well done. You have successfully dismantled the negative voice. Calm clarity is restored to your mind.";
+            setDistortionSubtitle(victoryText);
+            fallbackMonkWebSpeech(victoryText);
+          } else {
+            setDistortionSubtitle(nextMonsterResponse);
+            setDistortionCurrentChallenge(nextMonsterResponse);
+            fallbackMonkWebSpeech(nextMonsterResponse);
+          }
+        }, 1500);
+      } catch (err) {
+        console.error("API Error in Saint Dialogue:", err);
+        setDistortionSpeaker("Saint");
+        setDistortionSubtitle("I had trouble understanding that. Let's try again.");
+        setDistortionIsLoading(false);
+      }
+    }
+  };
+
+  const handleStartGame = (typeKey, initialThought = null) => {
     setSelectedType(typeKey);
     setIntensity(100);
-    const openingText = DEFAULT_OPENING_LINES[typeKey] || "Things are looking pretty hopeless right now.";
-    setChatLog([
-      { sender: 'monster', text: openingText }
-    ]);
+    if (initialThought) {
+      setChatLog([
+        { sender: 'player', text: initialThought },
+        { sender: 'monster', text: DEFAULT_OPENING_LINES[typeKey] || "Things are looking pretty hopeless right now." }
+      ]);
+    } else {
+      setChatLog([
+        { sender: 'monster', text: DEFAULT_OPENING_LINES[typeKey] || "Things are looking pretty hopeless right now." }
+      ]);
+    }
     setStage('chat');
     setUserInput('');
     setError(null);
@@ -1959,7 +2082,7 @@ const ReframeGame = ({ onExit }) => {
           <div className="flex items-center gap-2 bg-slate-900/95 px-4 py-2 border-2 border-slate-700 backdrop-blur-sm shadow-md">
             <Brain className="text-purple-400 w-5 h-5" />
             <span className="font-pixel-title text-xs text-teal-400 tracking-wider">
-              {currentRoom === 'rooftop' ? "ROOFTOP DECK" : currentRoom === 'lobby' ? "BUILDING LOBBY" : "DISTORTION ROOM"}
+              {currentRoom === 'rooftop' ? "ROOFTOP DECK" : currentRoom === 'lobby' ? "BUILDING LOBBY" : "REFLECTION ROOM"}
             </span>
           </div>
         </div>
@@ -2246,6 +2369,170 @@ const ReframeGame = ({ onExit }) => {
           </div>
         )}
 
+        {/* Overgeneralization NPC Dialogue Box */}
+        {currentRoom === 'distortion_room' && selectedType === 'overgeneralization' && distortionDialogueOpen && (
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-2xl bg-[#2d0f0f] border-4 border-amber-500 text-amber-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
+            
+            {/* Header with Name, Role, Speaker and Leave button */}
+            <div className="flex justify-between items-start border-b-2 border-amber-500/20 pb-2">
+              <div>
+                <h4 className="font-bold text-lg font-pixel-body text-amber-400">
+                  {distortionSpeaker}
+                </h4>
+                <span className="text-[10px] text-amber-300/80 font-pixel-body">
+                  {distortionSpeaker === 'Saint' ? 'holy saint' : 'seeker'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    fallbackMonkWebSpeech(distortionSubtitle || "What is bothering you my child?");
+                  }}
+                  className="px-2 py-1 bg-[#451414] border-2 border-amber-500 hover:bg-[#5c1a1a] text-amber-200 transition rounded-none font-bold text-sm"
+                  title="Play/Replay audio"
+                >
+                  🔊
+                </button>
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    setDistortionDialogueOpen(false);
+                    // Reset session on exit
+                    setDistortionSessionActive(false);
+                    setDistortionIntensity(100);
+                    setDistortionSpeaker("Saint");
+                    setDistortionFeedback("");
+                    setDistortionInputPlaceholder("Type what is bothering you...");
+                  }}
+                  className="px-3 py-1 bg-slate-950 text-white border-2 border-amber-500 font-pixel-body text-[10px] hover:bg-slate-800 transition rounded-none"
+                >
+                  Esc - leave
+                </button>
+              </div>
+            </div>
+
+            {/* Intensity meter (Only shown when session is active and not finished) */}
+            {distortionSessionActive && distortionIntensity > 15 && (
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center text-[10px] text-amber-400/80 font-bold uppercase tracking-wider font-pixel-body">
+                  <span>Challenge Intensity</span>
+                  <span className={distortionIntensity > 50 ? 'text-red-400 font-bold' : 'text-teal-400 font-bold'}>{distortionIntensity}%</span>
+                </div>
+                <div className="w-full bg-slate-950 border-2 border-amber-500/30 h-3 relative p-[2px]">
+                  <div className="h-full bg-red-700 transition-all duration-500" style={{ width: `${distortionIntensity}%` }} />
+                </div>
+              </div>
+            )}
+
+            {/* Main dialogue speech text */}
+            <div className="py-1">
+              <p className="text-sm font-semibold leading-relaxed font-pixel-body text-amber-100">
+                "{distortionSubtitle || "What is bothering you my child?"}"
+              </p>
+              
+              {/* Feedback text */}
+              {distortionFeedback && distortionSpeaker === 'Saint' && (
+                <div className="text-teal-400 text-xs italic font-bold border-l-2 border-teal-500 pl-2 mt-2 font-pixel-body">
+                  &gt; {distortionFeedback}
+                </div>
+              )}
+
+              {distortionIsLoading && (
+                <span className="text-[9px] text-teal-400 font-bold uppercase tracking-wider animate-pulse mt-2 flex items-center gap-1 font-pixel-body">
+                  <Loader2 className="animate-spin w-3 h-3" /> THINKING...
+                </span>
+              )}
+            </div>
+
+            {/* Selector Choices (Only shown before session starts) */}
+            {!distortionSessionActive && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t-2 border-amber-500/20">
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    setDistortionSessionActive(true);
+                    setDistortionSpeaker("Saint");
+                    const challengeLine = DEFAULT_OPENING_LINES['overgeneralization'] || "You always mess things up; this time won't be any different.";
+                    setDistortionCurrentChallenge(challengeLine);
+                    setDistortionSubtitle(challengeLine);
+                    setDistortionInputPlaceholder("Type your healthy reframe here...");
+                    fallbackMonkWebSpeech(challengeLine);
+                  }}
+                  className="px-3 py-1.5 bg-[#451414] border-2 border-amber-500 hover:bg-[#5c1a1a] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+                >
+                  1. Let's begin the reflection
+                </button>
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    setDistortionDialogueOpen(false);
+                  }}
+                  className="px-3 py-1.5 bg-slate-950 border-2 border-amber-500 hover:bg-slate-800 text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+                >
+                  2. I'm fine, thank you
+                </button>
+              </div>
+            )}
+
+            {/* Victory Complete Button */}
+            {distortionIntensity <= 15 && distortionSessionActive && (
+              <div className="flex justify-center pt-2 border-t-2 border-amber-500/20">
+                <button 
+                  onClick={() => {
+                    playRetroClickSound();
+                    setDistortionDialogueOpen(false);
+                    // Reset states
+                    setDistortionSessionActive(false);
+                    setDistortionIntensity(100);
+                    setDistortionSpeaker("Saint");
+                    setDistortionFeedback("");
+                    setDistortionInputPlaceholder("Type what is bothering you...");
+                  }}
+                  className="px-6 py-2 bg-gradient-to-r from-teal-500 to-emerald-600 border-4 border-teal-400 text-slate-950 font-pixel-body text-sm font-bold rounded-none shadow-none hover:scale-[1.02] transition"
+                >
+                  COMPLETE REFLECTION
+                </button>
+              </div>
+            )}
+
+            {/* Input field for custom thoughts/reframes (Only shown when not finished) */}
+            {distortionIntensity > 15 && (
+              <div className="flex gap-2 mt-2 pt-2 border-t-2 border-amber-500/20">
+                <input 
+                  type="text"
+                  placeholder={distortionInputPlaceholder}
+                  disabled={distortionIsLoading}
+                  className="flex-1 bg-slate-950 border-2 border-amber-500 text-amber-100 px-3 py-1.5 text-xs font-mono rounded-none focus:outline-none focus:border-amber-400 disabled:opacity-50"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (e.target.value.trim()) {
+                        playRetroClickSound();
+                        handleSaintSend(e.target.value.trim());
+                        e.target.value = '';
+                      }
+                    }
+                  }}
+                />
+                <button 
+                  onClick={(e) => {
+                    const input = e.target.previousSibling;
+                    if (input.value.trim()) {
+                      playRetroClickSound();
+                      handleSaintSend(input.value.trim());
+                      input.value = '';
+                    }
+                  }}
+                  disabled={distortionIsLoading}
+                  className="px-4 bg-[#451414] text-amber-200 border-2 border-amber-500 text-xs font-bold font-pixel-body hover:bg-[#5c1a1a] rounded-none transition disabled:opacity-50"
+                >
+                  SEND
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Breathing Exercise Modal Overlay */}
         {breathingExerciseActive && (
           <BreathingExercise 
@@ -2282,7 +2569,7 @@ const ReframeGame = ({ onExit }) => {
                 ? "You are outside on the observation deck. Walk directly into the arched brick building doorway to enter the Lobby."
                 : currentRoom === 'lobby'
                 ? "You are in the ground floor lobby. Walk into the doorways (Room 101, 102, 103, Lounge, Admin) to enter dedicated rooms. Stepping onto the bottom doorway EXITS the building."
-                : "You are inside a private distortion room. Stepping onto the bottom-left door exits to the LOBBY. Stepping onto the top-left door transitions directly to the ROOFTOP."}
+                : "You are inside a private room. Stepping onto the bottom-left door exits to the LOBBY. Stepping onto the top-left door transitions directly to the ROOFTOP."}
             </p>
           </div>
         ) : (
@@ -2361,7 +2648,7 @@ const ReframeGame = ({ onExit }) => {
                       • Hotel Lobby
                     </div>
                     <div className={`p-1 border ${currentRoom === 'distortion_room' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
-                      • Distortion Suite
+                      • Reflection Suite
                     </div>
                   </div>
                   <div className={`p-2 border text-center ${currentRoom === 'outside' ? 'border-teal-500 bg-teal-950/40 text-teal-200' : 'border-slate-900 text-slate-400'}`}>
@@ -2407,78 +2694,24 @@ const ReframeGame = ({ onExit }) => {
           className="flex items-center gap-2 px-4 py-2 bg-slate-900 border-2 border-slate-700 hover:border-slate-500 rounded-none text-white font-pixel-body text-lg transition"
         >
           <ArrowLeft size={16} />
-          SELECT DISTORTION
+          SELECT REFLECTION
         </button>
-        <div className="flex items-center gap-2">
-          <span className="font-pixel-body text-xl text-teal-400 tracking-wider font-bold">
-            {preProcessDistortionName(selectedType).toUpperCase()}
-          </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-slate-900 px-4 py-2 border-2 border-slate-700">
+            <span className="font-pixel-body text-xs text-slate-400 font-bold uppercase tracking-wider">
+              CHALLENGE INTENSITY:
+            </span>
+            <span className={`font-pixel-body text-sm font-bold ${intensity > 50 ? 'text-red-400' : 'text-teal-400'}`}>
+              {intensity}%
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="flex-1 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch z-10 mb-6">
         
-        {/* Left Column: Portrait, Stats & Clarity meter */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          <div className="bg-slate-900 border-4 border-slate-700 rounded-none p-6 flex flex-col gap-6 shadow-none h-full justify-between">
-            <div>
-              <span className="font-pixel-body text-sm uppercase font-bold tracking-wider text-purple-400">Current Pattern</span>
-              <h2 className="font-pixel-body text-3xl font-bold mt-1 text-white leading-tight">
-                {preProcessDistortionName(selectedType)}
-              </h2>
-              
-              {/* Character Portrait */}
-              <div className="w-full aspect-square bg-slate-950 border-4 border-slate-700 rounded-none overflow-hidden my-4">
-                <img 
-                  src={processedSprites[selectedType] || CHARACTER_SPRITES[selectedType]} 
-                  alt={selectedType}
-                  className="w-full h-full object-cover"
-                  style={{ imageRendering: 'pixelated' }}
-                />
-              </div>
-
-              <p className="text-slate-300 text-sm leading-relaxed border-b border-slate-700 pb-4">
-                {distortionTypes[selectedType]}
-              </p>
-
-              {/* Clarity meter */}
-              <div className="mt-6 space-y-3">
-                <div className="flex justify-between items-end">
-                  <span className="font-pixel-body text-base text-slate-400 font-semibold flex items-center gap-1">
-                    <TrendingDown size={16} className="text-teal-400" />
-                    DISTORTION INTENSITY
-                  </span>
-                  <span className={`font-pixel-body text-lg font-bold ${intensity > 50 ? 'text-red-400' : 'text-teal-400'}`}>
-                    {intensity}%
-                  </span>
-                </div>
-                <div className="bg-slate-950 border-4 border-slate-700 rounded-none h-7 relative p-[2px]">
-                  <div 
-                    className="h-full bg-red-700 transition-all duration-700 ease-out"
-                    style={{ width: `${intensity}%` }}
-                  />
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed italic mt-2">
-                  Dismantle the negative voice by providing realistic, balanced perspectives. Reduce distortion intensity below 15% to resolve the thought.
-                </p>
-              </div>
-            </div>
-
-            {/* Support box */}
-            <div className="bg-slate-950 border-2 border-teal-800 rounded-none p-4">
-              <h4 className="font-pixel-body text-sm text-teal-400 font-bold mb-1 flex items-center gap-1">
-                <Heart size={14} />
-                CBT GUIDANCE
-              </h4>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Take a deep breath. Focus on gathering evidence against the negative claim. Try to think what you would say to a close friend facing the same doubt.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Chat Screen */}
-        <div className="lg:col-span-8 flex flex-col bg-slate-900 border-4 border-slate-700 rounded-none p-6 shadow-none h-[600px] lg:h-auto justify-between">
+        {/* Right Column (Expanded to Full Width): Chat Screen */}
+        <div className="lg:col-span-12 flex flex-col bg-slate-900 border-4 border-slate-700 rounded-none p-6 shadow-none h-[600px] lg:h-auto justify-between">
           
           {/* Chat message feed */}
           <div className="flex-1 overflow-y-auto space-y-4 p-4 mb-4 bg-slate-950 border-4 border-slate-800 rounded-none flex flex-col justify-start">
@@ -2511,7 +2744,7 @@ const ReframeGame = ({ onExit }) => {
                       transition={{ duration: 0.4 }}
                     >
                       <span className="font-pixel-body text-xs text-teal-400 uppercase tracking-widest font-bold mr-1 mb-1 text-right">
-                        Your Reframe
+                        {index === 0 ? "Your Thought" : "Your Reframe"}
                       </span>
                       <div className="bg-indigo-950 border-2 border-indigo-700 text-white rounded-none p-4 shadow-none leading-relaxed text-sm">
                         {msg.text}
@@ -2630,7 +2863,7 @@ const ReframeGame = ({ onExit }) => {
               </h2>
 
               <p className="text-slate-300 text-base leading-relaxed mb-8">
-                Through mindful CBT reframing, you have successfully dismantled the negative distortion and reduced its intensity down to <span className="text-teal-400 font-bold">{intensity}%</span>. The voice has lost its grip, and calm clarity is restored to your mind.
+                Through mindful CBT reframing, you have successfully dismantled the negative voice and reduced its intensity down to <span className="text-teal-400 font-bold">{intensity}%</span>. The voice has lost its grip, and calm clarity is restored to your mind.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
