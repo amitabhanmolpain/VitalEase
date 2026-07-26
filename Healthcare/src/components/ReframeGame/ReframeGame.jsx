@@ -949,6 +949,8 @@ const ReframeGame = ({ onExit }) => {
       reply = "Do meditation for 30 secs with me.";
     } else if (choiceText.toLowerCase().includes("anxious") || choiceText.toLowerCase().includes("anxiety")) {
       reply = "Go to the 2nd floor and do breathing exercise.";
+    } else if (choiceText.toLowerCase().includes("im fine") || choiceText.toLowerCase().includes("i'm fine") || choiceText.toLowerCase().includes("fine")) {
+      reply = "That is wonderful to hear. Keep taking care of yourself.";
     }
 
     setMonkSpeaking(false);
@@ -2172,6 +2174,15 @@ const ReframeGame = ({ onExit }) => {
                 className="px-3 py-1.5 bg-[#451414] border-2 border-amber-500 hover:bg-[#5c1a1a] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
               >
                 2. I'm feeling anxious
+              </button>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleMonkChoice("I'm fine, thank you");
+                }}
+                className="px-3 py-1.5 bg-[#451414] border-2 border-amber-500 hover:bg-[#5c1a1a] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                3. I'm fine, thank you
               </button>
             </div>
 
