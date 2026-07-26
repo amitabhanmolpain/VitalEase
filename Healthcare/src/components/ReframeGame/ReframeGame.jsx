@@ -1914,6 +1914,7 @@ const ReframeGame = ({ onExit }) => {
       setDistortionSpeaker("You");
       setDistortionSubtitle(typedText);
       setDistortionIsLoading(true);
+      fallbackPlayerWebSpeech(typedText);
 
       setTimeout(() => {
         // Step 2: After a brief moment, the Saint challenges the player with the negative voice statement
@@ -1931,6 +1932,7 @@ const ReframeGame = ({ onExit }) => {
       setDistortionSpeaker("You");
       setDistortionSubtitle(typedText);
       setDistortionIsLoading(true);
+      fallbackPlayerWebSpeech(typedText);
 
       try {
         const response = await reframeAPI.judgeReframe({
