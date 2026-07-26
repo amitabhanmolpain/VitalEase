@@ -312,6 +312,10 @@ const ReframeGame = ({ onExit }) => {
   const [distortionDialogueOpen, setDistortionDialogueOpen] = useState(false);
   const [distortionSubtitle, setDistortionSubtitle] = useState("");
 
+  // Player room speech state
+  const [playerDialogueOpen, setPlayerDialogueOpen] = useState(false);
+  const [playerDialogueText, setPlayerDialogueText] = useState("");
+
   // Inline game loop states for Overgeneralization Saint dialogue
   const [distortionSessionActive, setDistortionSessionActive] = useState(false);
   const [distortionSpeaker, setDistortionSpeaker] = useState("Saint"); // "Saint" or "You"
@@ -755,6 +759,7 @@ const ReframeGame = ({ onExit }) => {
         setDistortionDialogueOpen(false);
         setReceptionistDialogueOpen(false);
         setMonkDialogueOpen(false);
+        setPlayerDialogueOpen(false);
         
         // Reset states for overgeneralization room
         setDistortionSessionActive(false);
@@ -919,6 +924,16 @@ const ReframeGame = ({ onExit }) => {
   const triggerPlayerSpeech = async (textToSpeak, onEnd) => {
     setReceptionistSubtitle(textToSpeak);
     fallbackPlayerWebSpeech(textToSpeak, onEnd);
+  };
+
+  const triggerPlayerRoomSpeech = (text) => {
+    setPlayerDialogueText(text);
+    setPlayerDialogueOpen(true);
+    fallbackPlayerWebSpeech(text);
+    // Auto-close after 2.5 seconds
+    setTimeout(() => {
+      setPlayerDialogueOpen(false);
+    }, 2500);
   };
 
   const handleReceptionistChoice = (choiceText) => {
@@ -1395,6 +1410,7 @@ const ReframeGame = ({ onExit }) => {
           player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
+          triggerPlayerRoomSpeech("Looks like no one is here");
           return;
         }
  
@@ -1424,6 +1440,7 @@ const ReframeGame = ({ onExit }) => {
           player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
+          triggerPlayerRoomSpeech("Looks like no one is here");
           return;
         }
 
@@ -1434,6 +1451,7 @@ const ReframeGame = ({ onExit }) => {
           player.current.y = 480;
           cancelAnimationFrame(animationFrameId.current);
           animationFrameId.current = requestAnimationFrame(gameLoop);
+          triggerPlayerRoomSpeech("Looks like no one is here");
           return;
         }
 
@@ -2647,6 +2665,32 @@ const ReframeGame = ({ onExit }) => {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Player Speech Dialogue Box (Displays when entering empty rooms) */}
+        {playerDialogueOpen && (
+          <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 w-full max-w-md bg-[#1a2e1e] border-4 border-emerald-500 text-emerald-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-2">
+            <div className="flex justify-between items-start border-b-2 border-emerald-500/20 pb-2">
+              <div>
+                <h4 className="font-bold text-lg font-pixel-body text-emerald-400">You</h4>
+                <span className="text-[10px] text-emerald-300/80 font-pixel-body">seeker</span>
+              </div>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  setPlayerDialogueOpen(false);
+                }}
+                className="px-3 py-1 bg-slate-950 text-white border-2 border-emerald-500 font-pixel-body text-[10px] hover:bg-slate-800 transition rounded-none"
+              >
+                Close
+              </button>
+            </div>
+            <div className="py-1">
+              <p className="text-sm font-semibold leading-relaxed font-pixel-body text-emerald-100">
+                "{playerDialogueText}"
+              </p>
+            </div>
           </div>
         )}
 
