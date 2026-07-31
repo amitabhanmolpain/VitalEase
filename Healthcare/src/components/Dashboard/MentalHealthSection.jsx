@@ -1,10 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from 'react-hot-toast';
 import { doctors } from "../../constants";
-import ThoughtBattleGame from "../../ThoughtBattleGame";
-import LifeQuestGame from "../LifeQuest/LifeQuestGame";
-import EmotionQuestGame from "../EmotionQuest/EmotionQuestGame";
-import ReframeGame from "../ReframeGame/ReframeGame";
 import useGameStore from "../../store/gameStore";
 import { 
   Heart, 
@@ -55,7 +52,8 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
   };
   const [journalEntry, setJournalEntry] = useState("");
   const [selectedTherapist, setSelectedTherapist] = useState(null);
-  const [activeGame, setActiveGame] = useState(null); // 'thoughtbattle', 'lifequest', or 'emotionquest'
+  const navigate = useNavigate();
+  const [activeGame, setActiveGame] = useState(null); // kept for any other references, navigation handled by router
   const [backendAssessments, setBackendAssessments] = useState([]);
   const [loadingAssessments, setLoadingAssessments] = useState(false);
 
@@ -469,38 +467,7 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
     );
   }
 
-  // Show Active Game
-  if (activeGame === 'thoughtbattle') {
-    return (
-      <div className="fixed inset-0 z-50 overflow-auto">
-        <ThoughtBattleGame onExit={() => setActiveGame(null)} />
-      </div>
-    );
-  }
-
-  if (activeGame === 'lifequest') {
-    return (
-      <div className="fixed inset-0 z-50 overflow-auto">
-        <LifeQuestGame onExit={() => setActiveGame(null)} />
-      </div>
-    );
-  }
-
-  if (activeGame === 'emotionquest') {
-    return (
-      <div className="fixed inset-0 z-50 overflow-auto">
-        <EmotionQuestGame onExit={() => setActiveGame(null)} />
-      </div>
-    );
-  }
-
-  if (activeGame === 'reframegame') {
-    return (
-      <div className="fixed inset-0 z-50 overflow-auto">
-        <ReframeGame onExit={() => setActiveGame(null)} />
-      </div>
-    );
-  }
+  // Games are now full-page routes — navigate there instead of rendering inline
 
   return (
     <div className="space-y-6">
@@ -726,7 +693,7 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
               </div>
 
               <button
-                onClick={() => setActiveGame('thoughtbattle')}
+                onClick={() => navigate('/games/thought-battle')}
                 className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl text-white font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
               >
                 <Swords size={24} />
@@ -777,7 +744,7 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
               </div>
 
               <button
-                onClick={() => setActiveGame('reframegame')}
+                onClick={() => navigate('/games/reframe')}
                 className="w-full py-4 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-xl text-slate-950 font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
               >
                 <Brain size={24} />
