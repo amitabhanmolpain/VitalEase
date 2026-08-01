@@ -24,7 +24,7 @@ import {
   Target
 } from "lucide-react";
 import { assessmentAPI } from '../../services/assessmentApi';
-import ApiEndpointsPanel from "../Dashboard/ApiEndpointsPanel";
+
 
 const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" }) => {
   // Check localStorage for assessment completion
@@ -632,15 +632,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </>
           )}
 
-          {/* API Endpoints — Your Results */}
-          <ApiEndpointsPanel
-            title="Your Results — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/assessments",       description: "Load previous assessment history" },
-              { method: "POST", path: "/api/assessments",       description: "Submit completed assessment + score" },
-              { method: "PUT",  path: "/api/assessments/:id",   description: "Update / retake an assessment" },
-            ]}
-          />
         </div>
       )}
 
@@ -780,16 +771,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Support Resources */}
-          <ApiEndpointsPanel
-            title="Support Resources — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/doctors/specialty/Psychiatrist", description: "Fetch psychiatrist listings" },
-              { method: "GET",  path: "/api/doctors/specialty/Neurologist",  description: "Fetch neurologist listings" },
-              { method: "POST", path: "/api/appointments",                   description: "Book crisis / support session" },
-              { method: "WS",   path: "ws://server/socket.io",               description: "Real-time crisis chat (SocketIO)" },
-            ]}
-          />
         </div>
       )}
 
@@ -818,15 +799,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Self-Care */}
-          <ApiEndpointsPanel
-            title="Self-Care — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/assessments",        description: "Load wellness history for recommendations" },
-              { method: "POST", path: "/api/assessments",        description: "Log a self-care activity completion" },
-              { method: "GET",  path: "/api/player/stats",       description: "XP earned from self-care streaks" },
-            ]}
-          />
         </div>
       )}
 
@@ -881,16 +853,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Journal */}
-          <ApiEndpointsPanel
-            title="Journal — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/assessments",        description: "Load saved journal / assessment entries" },
-              { method: "POST", path: "/api/assessments",        description: "Save a new journal entry" },
-              { method: "PUT",  path: "/api/assessments/:id",    description: "Edit an existing journal entry" },
-              { method: "DELETE", path: "/api/assessments/:id",  description: "Delete a journal entry" },
-            ]}
-          />
         </div>
       )}
 
@@ -940,17 +902,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Talk to Someone */}
-          <ApiEndpointsPanel
-            title="Talk to Someone — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/doctors/specialty/Psychiatrist", description: "List psychiatrists" },
-              { method: "GET",  path: "/api/doctors/specialty/Neurologist",  description: "List neurologists" },
-              { method: "GET",  path: "/api/doctors/:id",                    description: "Therapist profile & details" },
-              { method: "GET",  path: "/api/appointments/available-slots/:id", description: "Available session slots" },
-              { method: "POST", path: "/api/appointments",                   description: "Book a therapy session" },
-            ]}
-          />
         </div>
       )}
     </div>
