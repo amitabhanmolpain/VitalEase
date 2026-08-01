@@ -131,6 +131,9 @@ def create_app():
 
     from app.affirmation_room import affirmation_room_bp
     app.register_blueprint(affirmation_room_bp)
+
+    from app.routes.growing_tree_routes import growing_tree_bp
+    app.register_blueprint(growing_tree_bp)
     
     # Debug: Print all registered routes
     print('REGISTERED ROUTES:')
