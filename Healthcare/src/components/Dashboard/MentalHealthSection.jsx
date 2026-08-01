@@ -799,11 +799,14 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
           <ApiEndpointsPanel
             title="Mental Health Games — API Endpoints"
             endpoints={[
-              { method: "GET",  path: "/api/player/stats",           description: "Player XP, level, battles won" },
-              { method: "POST", path: "/api/reframe/session",        description: "Start a Thought Reframer session" },
-              { method: "GET",  path: "/api/reframe/distortions",    description: "Fetch cognitive distortion list" },
-              { method: "WS",   path: "ws://server/socket.io",       description: "Live game events (Thought Battle)" },
-              { method: "POST", path: "/api/game/battle/result",     description: "Save battle outcome + XP" },
+              { method: "GET",  path: "/api/player/stats",                       description: "Player XP, level, battles won" },
+              { method: "GET",  path: "/api/reframe-game/distortion-types",      description: "Fetch cognitive distortion types" },
+              { method: "POST", path: "/api/reframe-game/judge-reframe",         description: "Evaluate user reframe response" },
+              { method: "POST", path: "/api/reframe-game/speak",                 description: "Generate text-to-speech audio" },
+              { method: "POST", path: "/api/reframe-game/receptionist-respond",  description: "AI receptionist response" },
+              { method: "POST", path: "/api/affirmation-room/respond",           description: "AI affirmation guide response" },
+              { method: "WS",   path: "ws://server/socket.io",                   description: "Live game events (Thought Battle)" },
+              { method: "POST", path: "/api/game/battle/result",                 description: "Save battle outcome + XP" },
             ]}
           />
         </div>
@@ -1572,21 +1575,6 @@ const LeaderboardSection = () => {
         </p>
       </div>
 
-      {/* API Endpoints Reference */}
-      <ApiEndpointsPanel
-        title="Mental Health — API Endpoints"
-        endpoints={[
-          { method: "GET",    path: "/api/assessments",          description: "User’s assessment history" },
-          { method: "POST",   path: "/api/assessments",          description: "Submit a new assessment" },
-          { method: "GET",    path: "/api/assessments/:id",      description: "Get a specific assessment" },
-          { method: "PUT",    path: "/api/assessments/:id",      description: "Update an assessment" },
-          { method: "DELETE", path: "/api/assessments/:id",      description: "Delete an assessment" },
-          { method: "WS",     path: "ws://server/socket.io",     description: "Real-time game events (SocketIO)" },
-          { method: "GET",    path: "/api/reframe/distortions",  description: "Cognitive distortion list" },
-          { method: "POST",   path: "/api/reframe/session",      description: "Start a Thought Reframer session" },
-          { method: "GET",    path: "/api/player/stats",         description: "Player XP, level & stats" },
-        ]}
-      />
     </div>
   );
 };
