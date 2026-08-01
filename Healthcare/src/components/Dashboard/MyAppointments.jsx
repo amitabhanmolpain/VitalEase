@@ -14,6 +14,7 @@ import {
   FileText,
   Loader
 } from "lucide-react";
+import ApiEndpointsPanel from "./ApiEndpointsPanel";
 
 const MyAppointments = () => {
   // Doctor image mapping
@@ -364,6 +365,17 @@ const MyAppointments = () => {
           </button>
         </div>
       </div>
+
+      {/* API Endpoints Reference */}
+      <ApiEndpointsPanel
+        title="My Appointments — API Endpoints"
+        endpoints={[
+          { method: "GET",    path: "/api/appointments/my",          description: "List user appointments (filter by status)" },
+          { method: "GET",    path: "/api/appointments/:id",         description: "Get a specific appointment" },
+          { method: "PATCH",  path: "/api/appointments/:id",         description: "Update appointment status" },
+          { method: "DELETE", path: "/api/appointments/:id",         description: "Cancel an appointment" },
+        ]}
+      />
     </div>
   );
 };

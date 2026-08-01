@@ -12,6 +12,7 @@ import {
   Lightbulb,
   CheckCircle
 } from "lucide-react";
+import ApiEndpointsPanel from "./ApiEndpointsPanel";
 
 const DashboardHome = ({ user, setActiveSection }) => {
   const [doctors, setDoctors] = useState([]);
@@ -276,6 +277,16 @@ const DashboardHome = ({ user, setActiveSection }) => {
           ))}
         </ul>
       </div>
+
+      {/* API Endpoints Reference */}
+      <ApiEndpointsPanel
+        title="Dashboard Home — API Endpoints"
+        endpoints={[
+          { method: "GET",  path: "/api/doctors/dashboard",       description: "Fetch limited active doctors (max 4)" },
+          { method: "GET",  path: "/api/appointments/upcoming",   description: "Upcoming appointments count" },
+          { method: "GET",  path: "/api/orders",                  description: "Total orders & active prescriptions" },
+        ]}
+      />
     </div>
   );
 };

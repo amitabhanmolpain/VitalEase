@@ -24,6 +24,7 @@ import {
   Target
 } from "lucide-react";
 import { assessmentAPI } from '../../services/assessmentApi';
+import ApiEndpointsPanel from "../Dashboard/ApiEndpointsPanel";
 
 const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" }) => {
   // Check localStorage for assessment completion
@@ -1502,6 +1503,22 @@ const LeaderboardSection = () => {
            "Challenge negative thoughts and build resilience through gameplay."}
         </p>
       </div>
+
+      {/* API Endpoints Reference */}
+      <ApiEndpointsPanel
+        title="Mental Health — API Endpoints"
+        endpoints={[
+          { method: "GET",    path: "/api/assessments",          description: "User’s assessment history" },
+          { method: "POST",   path: "/api/assessments",          description: "Submit a new assessment" },
+          { method: "GET",    path: "/api/assessments/:id",      description: "Get a specific assessment" },
+          { method: "PUT",    path: "/api/assessments/:id",      description: "Update an assessment" },
+          { method: "DELETE", path: "/api/assessments/:id",      description: "Delete an assessment" },
+          { method: "WS",     path: "ws://server/socket.io",     description: "Real-time game events (SocketIO)" },
+          { method: "GET",    path: "/api/reframe/distortions",  description: "Cognitive distortion list" },
+          { method: "POST",   path: "/api/reframe/session",      description: "Start a Thought Reframer session" },
+          { method: "GET",    path: "/api/player/stats",         description: "Player XP, level & stats" },
+        ]}
+      />
     </div>
   );
 };
