@@ -18,6 +18,7 @@ import {
   Users,
   ThumbsUp
 } from "lucide-react";
+import ApiEndpointsPanel from "./ApiEndpointsPanel";
 
 const AppointmentBooking = () => {
   // Doctor image mapping
@@ -724,6 +725,18 @@ const AppointmentBooking = () => {
           </div>
         </div>
       )}
+
+      {/* API Endpoints Reference */}
+      <ApiEndpointsPanel
+        title="Book Appointment — API Endpoints"
+        endpoints={[
+          { method: "GET",  path: "/api/doctors/all",                      description: "All doctors (active + inactive)" },
+          { method: "GET",  path: "/api/doctors/:id",                      description: "Doctor detail by ID" },
+          { method: "GET",  path: "/api/doctors/specialty/:specialty",     description: "Doctors by specialty" },
+          { method: "GET",  path: "/api/appointments/available-slots/:id", description: "Available slots for a doctor on a date" },
+          { method: "POST", path: "/api/appointments",                     description: "Create a new appointment" },
+        ]}
+      />
     </div>
   );
 };

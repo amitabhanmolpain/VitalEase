@@ -31,6 +31,7 @@ import {
 import { cartAPI } from "../../services/cartApi";
 import { orderAPI } from "../../services/orderApi";
 import { addressAPI } from "../../services/addressApi";
+import ApiEndpointsPanel from "./ApiEndpointsPanel";
 
 const MedicationSection = () => {
   const [cart, setCart] = useState([]);
@@ -1513,6 +1514,29 @@ const MedicationSection = () => {
           </div>
         </div>
       )}
+
+      {/* API Endpoints Reference */}
+      <ApiEndpointsPanel
+        title="Medications — API Endpoints"
+        endpoints={[
+          { method: "GET",    path: "/api/medicines",                    description: "All medicines" },
+          { method: "GET",    path: "/api/medicines/search?q=",          description: "Search medicines by name / description" },
+          { method: "GET",    path: "/api/medicines/category/:category", description: "Filter medicines by category" },
+          { method: "GET",    path: "/api/cart",                         description: "Get user’s cart" },
+          { method: "POST",   path: "/api/cart",                         description: "Add item to cart" },
+          { method: "PUT",    path: "/api/cart/:medicineId",             description: "Update cart item quantity" },
+          { method: "DELETE", path: "/api/cart/:medicineId",             description: "Remove item from cart" },
+          { method: "DELETE", path: "/api/cart",                         description: "Clear entire cart" },
+          { method: "GET",    path: "/api/orders",                       description: "User order history" },
+          { method: "POST",   path: "/api/orders",                       description: "Place a new order" },
+          { method: "POST",   path: "/api/orders/:id/cancel",            description: "Cancel an order" },
+          { method: "POST",   path: "/api/orders/:id/reorder",           description: "Re-add order items to cart" },
+          { method: "GET",    path: "/api/addresses",                    description: "Saved delivery addresses" },
+          { method: "POST",   path: "/api/addresses",                    description: "Save a new address" },
+          { method: "PUT",    path: "/api/addresses/:id",                description: "Update an address" },
+          { method: "DELETE", path: "/api/addresses/:id",                description: "Delete an address" },
+        ]}
+      />
     </div>
   );
 };

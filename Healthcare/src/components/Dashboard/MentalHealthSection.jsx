@@ -24,6 +24,7 @@ import {
   Target
 } from "lucide-react";
 import { assessmentAPI } from '../../services/assessmentApi';
+import ApiEndpointsPanel from "../Dashboard/ApiEndpointsPanel";
 
 const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" }) => {
   // Check localStorage for assessment completion
@@ -630,6 +631,16 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
               </div>
             </>
           )}
+
+          {/* API Endpoints — Your Results */}
+          <ApiEndpointsPanel
+            title="Your Results — API Endpoints"
+            endpoints={[
+              { method: "GET",  path: "/api/assessments",       description: "Load previous assessment history" },
+              { method: "POST", path: "/api/assessments",       description: "Submit completed assessment + score" },
+              { method: "PUT",  path: "/api/assessments/:id",   description: "Update / retake an assessment" },
+            ]}
+          />
         </div>
       )}
 
@@ -783,6 +794,21 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
               </div>
             </div>
           </div>
+
+          {/* API Endpoints — Mental Health Games */}
+          <ApiEndpointsPanel
+            title="Mental Health Games — API Endpoints"
+            endpoints={[
+              { method: "GET",  path: "/api/player/stats",                       description: "Player XP, level, battles won" },
+              { method: "GET",  path: "/api/reframe-game/distortion-types",      description: "Fetch cognitive distortion types" },
+              { method: "POST", path: "/api/reframe-game/judge-reframe",         description: "Evaluate user reframe response" },
+              { method: "POST", path: "/api/reframe-game/speak",                 description: "Generate text-to-speech audio" },
+              { method: "POST", path: "/api/reframe-game/receptionist-respond",  description: "AI receptionist response" },
+              { method: "POST", path: "/api/affirmation-room/respond",           description: "AI affirmation guide response" },
+              { method: "WS",   path: "ws://server/socket.io",                   description: "Live game events (Thought Battle)" },
+              { method: "POST", path: "/api/game/battle/result",                 description: "Save battle outcome + XP" },
+            ]}
+          />
         </div>
       )}
 
@@ -811,31 +837,54 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
               })}
             </div>
           </div>
+
+          {/* API Endpoints — Support Resources */}
+          <ApiEndpointsPanel
+            title="Support Resources — API Endpoints"
+            endpoints={[
+              { method: "GET",  path: "/api/doctors/specialty/Psychiatrist", description: "Fetch psychiatrist listings" },
+              { method: "GET",  path: "/api/doctors/specialty/Neurologist",  description: "Fetch neurologist listings" },
+              { method: "POST", path: "/api/appointments",                   description: "Book crisis / support session" },
+              { method: "WS",   path: "ws://server/socket.io",               description: "Real-time crisis chat (SocketIO)" },
+            ]}
+          />
         </div>
       )}
 
       {/* Self-Care Tab */}
       {activeTab === "self-care" && hasCompletedAssessment && (
-        <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 shadow-lg">
-          <h3 className="font-poppins font-semibold text-xl text-white mb-4">
-            Self-Care Activities
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {selfCareActivities.map((activity) => {
-              const Icon = activity.icon;
-              return (
-                <button
-                  key={activity.id}
-                  className="p-4 bg-purple-700/30 rounded-xl hover:bg-purple-600/50 transition text-left group border border-white/10 hover:border-pink-500/50"
-                >
-                  <Icon size={32} className="text-pink-400 mb-3 group-hover:scale-110 transition" />
-                  <h4 className="text-white font-semibold mb-1">{activity.title}</h4>
-                  <p className="text-gray-400 text-sm mb-2">{activity.description}</p>
-                  <span className="text-blue-400 text-sm">{activity.duration}</span>
-                </button>
-              );
-            })}
+        <div className="space-y-6">
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-6 border border-white/10 shadow-lg">
+            <h3 className="font-poppins font-semibold text-xl text-white mb-4">
+              Self-Care Activities
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {selfCareActivities.map((activity) => {
+                const Icon = activity.icon;
+                return (
+                  <button
+                    key={activity.id}
+                    className="p-4 bg-purple-700/30 rounded-xl hover:bg-purple-600/50 transition text-left group border border-white/10 hover:border-pink-500/50"
+                  >
+                    <Icon size={32} className="text-pink-400 mb-3 group-hover:scale-110 transition" />
+                    <h4 className="text-white font-semibold mb-1">{activity.title}</h4>
+                    <p className="text-gray-400 text-sm mb-2">{activity.description}</p>
+                    <span className="text-blue-400 text-sm">{activity.duration}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {/* API Endpoints — Self-Care */}
+          <ApiEndpointsPanel
+            title="Self-Care — API Endpoints"
+            endpoints={[
+              { method: "GET",  path: "/api/assessments",        description: "Load wellness history for recommendations" },
+              { method: "POST", path: "/api/assessments",        description: "Log a self-care activity completion" },
+              { method: "GET",  path: "/api/player/stats",       description: "XP earned from self-care streaks" },
+            ]}
+          />
         </div>
       )}
 
@@ -889,6 +938,17 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
               ))}
             </div>
           </div>
+
+          {/* API Endpoints — Journal */}
+          <ApiEndpointsPanel
+            title="Journal — API Endpoints"
+            endpoints={[
+              { method: "GET",  path: "/api/assessments",        description: "Load saved journal / assessment entries" },
+              { method: "POST", path: "/api/assessments",        description: "Save a new journal entry" },
+              { method: "PUT",  path: "/api/assessments/:id",    description: "Edit an existing journal entry" },
+              { method: "DELETE", path: "/api/assessments/:id",  description: "Delete a journal entry" },
+            ]}
+          />
         </div>
       )}
 
@@ -937,6 +997,18 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
               ))}
             </div>
           </div>
+
+          {/* API Endpoints — Talk to Someone */}
+          <ApiEndpointsPanel
+            title="Talk to Someone — API Endpoints"
+            endpoints={[
+              { method: "GET",  path: "/api/doctors/specialty/Psychiatrist", description: "List psychiatrists" },
+              { method: "GET",  path: "/api/doctors/specialty/Neurologist",  description: "List neurologists" },
+              { method: "GET",  path: "/api/doctors/:id",                    description: "Therapist profile & details" },
+              { method: "GET",  path: "/api/appointments/available-slots/:id", description: "Available session slots" },
+              { method: "POST", path: "/api/appointments",                   description: "Book a therapy session" },
+            ]}
+          />
         </div>
       )}
     </div>
@@ -1502,6 +1574,7 @@ const LeaderboardSection = () => {
            "Challenge negative thoughts and build resilience through gameplay."}
         </p>
       </div>
+
     </div>
   );
 };

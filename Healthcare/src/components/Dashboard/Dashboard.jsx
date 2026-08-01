@@ -11,9 +11,38 @@ import MentalHealthSection from "./MentalHealthSection";
 import MyAppointments from "./MyAppointments";
 import ProfileSection from "./ProfileSection";
 
+// Sections that are valid hash targets (must match sidebar item ids)
+const VALID_SECTIONS = [
+  "home", "appointments", "my-appointments",
+  "medications", "mental-health", "leaderboard", "profile"
+];
+
+// Read section from URL hash
+const getSectionFromHash = () => {
+  const hash = window.location.hash.replace("#", "");
+  return VALID_SECTIONS.includes(hash) ? hash : "home";
+};
+
 const Dashboard = ({ user, onLogout, onBackToHome }) => {
-  const [activeSection, setActiveSection] = useState("home");
+  // Initialise from URL hash so reload restores the same section
+  const [activeSection, setActiveSectionState] = useState(getSectionFromHash);
   const [showGame, setShowGame] = useState(false);
+
+  // Keep URL hash in sync whenever section changes
+  const setActiveSection = (section) => {
+    setActiveSectionState(section);
+    window.location.hash = section;
+  };
+
+  // Also listen for browser back/forward hash changes
+  useEffect(() => {
+    const onHashChange = () => {
+      const section = getSectionFromHash();
+      setActiveSectionState(section);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   // Connect to WebSocket for real-time updates
   useEffect(() => {

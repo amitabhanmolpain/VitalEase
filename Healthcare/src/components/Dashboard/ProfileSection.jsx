@@ -18,6 +18,7 @@ import {
   Activity,
   AlertCircle
 } from "lucide-react";
+import ApiEndpointsPanel from "./ApiEndpointsPanel";
 
 const ProfileSection = ({ user }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -583,6 +584,19 @@ const ProfileSection = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* API Endpoints Reference */}
+      <ApiEndpointsPanel
+        title="My Profile — API Endpoints"
+        endpoints={[
+          { method: "GET", path: "/api/profile/personal",  description: "Get personal info" },
+          { method: "PUT", path: "/api/profile/personal",  description: "Update personal info" },
+          { method: "GET", path: "/api/profile/medical",   description: "Get medical history" },
+          { method: "PUT", path: "/api/profile/medical",   description: "Update medical history" },
+          { method: "GET", path: "/api/profile/security",  description: "Get security settings" },
+          { method: "PUT", path: "/api/profile/security",  description: "Update / change password" },
+        ]}
+      />
     </div>
   );
 };
