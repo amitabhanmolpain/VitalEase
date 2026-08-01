@@ -24,7 +24,7 @@ import {
   Target
 } from "lucide-react";
 import { assessmentAPI } from '../../services/assessmentApi';
-import ApiEndpointsPanel from "../Dashboard/ApiEndpointsPanel";
+
 
 const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" }) => {
   // Check localStorage for assessment completion
@@ -632,15 +632,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </>
           )}
 
-          {/* API Endpoints — Your Results */}
-          <ApiEndpointsPanel
-            title="Your Results — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/assessments",       description: "Load previous assessment history" },
-              { method: "POST", path: "/api/assessments",       description: "Submit completed assessment + score" },
-              { method: "PUT",  path: "/api/assessments/:id",   description: "Update / retake an assessment" },
-            ]}
-          />
         </div>
       )}
 
@@ -662,105 +653,60 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
 
           {/* Game Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Thought Battle Game Card */}
-            <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl p-8 backdrop-blur-sm border border-purple-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Swords size={32} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="font-poppins font-bold text-2xl text-white">Thought Battle Arena</h3>
-                  <p className="text-purple-300">CBT-Based Combat Game</p>
-                </div>
+            {/* Clarity Strike Card */}
+            <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-purple-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
+              {/* Game Cover Image */}
+              <div className="w-full overflow-hidden">
+                <img
+                  src="/clarity strike image.png"
+                  alt="Clarity Strike"
+                  className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                />
               </div>
 
-              <p className="text-gray-300 mb-6 leading-relaxed">
-                Face negative thought monsters and defeat them by choosing healthy, rational responses based on Cognitive Behavioral Therapy principles.
-              </p>
+              <div className="p-6">
+                <h3 className="font-poppins font-bold text-2xl text-white mb-1">Clarity Strike</h3>
+                <p className="text-purple-300 mb-3">Fight back against negative thoughts.</p>
+                <p className="text-gray-300 mb-6 leading-relaxed text-sm">
+                  Face a thought that's been weighing on you. Respond with something honest and balanced, and watch it lose its grip. No fixed answers — you write your own response, and it's judged on whether it actually helps.
+                </p>
 
-              <div className="bg-purple-700/30 rounded-xl p-4 mb-6">
-                <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                  <Trophy size={18} className="text-yellow-400" />
-                  Game Features:
-                </h4>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <Zap size={14} className="text-blue-400" />
-                    <span>Earn XP & Level Up</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <Award size={14} className="text-green-400" />
-                    <span>Unlock Badges</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <Brain size={14} className="text-pink-400" />
-                    <span>Learn CBT Skills</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <Trophy size={14} className="text-yellow-400" />
-                    <span>Track Streaks</span>
-                  </div>
-                </div>
+                <button
+                  onClick={() => navigate('/games/thought-battle')}
+                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl text-white font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <Swords size={24} />
+                  Start Game
+                </button>
               </div>
-
-              <button
-                onClick={() => navigate('/games/thought-battle')}
-                className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl text-white font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
-              >
-                <Swords size={24} />
-                Start Battle
-              </button>
             </div>
 
-
-            {/* Thought Reframer Card */}
-            <div className="bg-gradient-to-br from-indigo-900/50 to-teal-900/50 rounded-2xl p-8 backdrop-blur-sm border border-teal-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-teal-500 to-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Brain size={32} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="font-poppins font-bold text-2xl text-white">Thought Reframer</h3>
-                  <p className="text-teal-300">CBT Cognitive Exercises</p>
-                </div>
+            {/* Sanctuary Suites Card */}
+            <div className="bg-gradient-to-br from-indigo-900/50 to-teal-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-teal-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
+              {/* Game Cover Image */}
+              <div className="w-full overflow-hidden">
+                <img
+                  src="/santuary suites image.png"
+                  alt="Sanctuary Suites"
+                  className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                />
               </div>
 
-              <p className="text-gray-300 mb-6 leading-relaxed">
-                Deconstruct automated negative thought patterns. Select a distortion type, analyze its core flaws, and write balanced reframes to weaken it.
-              </p>
+              <div className="p-6">
+                <h3 className="font-poppins font-bold text-2xl text-white mb-1">Sanctuary Suites</h3>
+                <p className="text-teal-300 mb-3">Every room holds a different struggle.</p>
+                <p className="text-gray-300 mb-6 leading-relaxed text-sm">
+                  Step into a quiet hotel built from your own mind. Each room holds a different issue — walk in, talk it through, and leave a little lighter. Explore at your own pace, in any order you choose.
+                </p>
 
-              <div className="bg-teal-700/30 rounded-xl p-4 mb-6">
-                <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                  <Trophy size={18} className="text-yellow-400" />
-                  Game Features:
-                </h4>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <Brain size={14} className="text-purple-400" />
-                    <span>5 Distortions</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <Lightbulb size={14} className="text-yellow-400" />
-                    <span>AI Reflection</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <Heart size={14} className="text-red-400" />
-                    <span>Mindful Settle</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-300">
-                    <CheckCircle size={14} className="text-blue-400" />
-                    <span>Evidence-Based</span>
-                  </div>
-                </div>
+                <button
+                  onClick={() => navigate('/games/reframe')}
+                  className="w-full py-4 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-xl text-slate-950 font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <Brain size={24} />
+                  Start Game
+                </button>
               </div>
-
-              <button
-                onClick={() => navigate('/games/reframe')}
-                className="w-full py-4 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-xl text-slate-950 font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
-              >
-                <Brain size={24} />
-                Start Reframing
-              </button>
             </div>
           </div>
 
@@ -795,20 +741,7 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Mental Health Games */}
-          <ApiEndpointsPanel
-            title="Mental Health Games — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/player/stats",                       description: "Player XP, level, battles won" },
-              { method: "GET",  path: "/api/reframe-game/distortion-types",      description: "Fetch cognitive distortion types" },
-              { method: "POST", path: "/api/reframe-game/judge-reframe",         description: "Evaluate user reframe response" },
-              { method: "POST", path: "/api/reframe-game/speak",                 description: "Generate text-to-speech audio" },
-              { method: "POST", path: "/api/reframe-game/receptionist-respond",  description: "AI receptionist response" },
-              { method: "POST", path: "/api/affirmation-room/respond",           description: "AI affirmation guide response" },
-              { method: "WS",   path: "ws://server/socket.io",                   description: "Live game events (Thought Battle)" },
-              { method: "POST", path: "/api/game/battle/result",                 description: "Save battle outcome + XP" },
-            ]}
-          />
+
         </div>
       )}
 
@@ -838,16 +771,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Support Resources */}
-          <ApiEndpointsPanel
-            title="Support Resources — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/doctors/specialty/Psychiatrist", description: "Fetch psychiatrist listings" },
-              { method: "GET",  path: "/api/doctors/specialty/Neurologist",  description: "Fetch neurologist listings" },
-              { method: "POST", path: "/api/appointments",                   description: "Book crisis / support session" },
-              { method: "WS",   path: "ws://server/socket.io",               description: "Real-time crisis chat (SocketIO)" },
-            ]}
-          />
         </div>
       )}
 
@@ -876,15 +799,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Self-Care */}
-          <ApiEndpointsPanel
-            title="Self-Care — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/assessments",        description: "Load wellness history for recommendations" },
-              { method: "POST", path: "/api/assessments",        description: "Log a self-care activity completion" },
-              { method: "GET",  path: "/api/player/stats",       description: "XP earned from self-care streaks" },
-            ]}
-          />
         </div>
       )}
 
@@ -939,16 +853,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Journal */}
-          <ApiEndpointsPanel
-            title="Journal — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/assessments",        description: "Load saved journal / assessment entries" },
-              { method: "POST", path: "/api/assessments",        description: "Save a new journal entry" },
-              { method: "PUT",  path: "/api/assessments/:id",    description: "Edit an existing journal entry" },
-              { method: "DELETE", path: "/api/assessments/:id",  description: "Delete a journal entry" },
-            ]}
-          />
         </div>
       )}
 
@@ -998,17 +902,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
           </div>
 
-          {/* API Endpoints — Talk to Someone */}
-          <ApiEndpointsPanel
-            title="Talk to Someone — API Endpoints"
-            endpoints={[
-              { method: "GET",  path: "/api/doctors/specialty/Psychiatrist", description: "List psychiatrists" },
-              { method: "GET",  path: "/api/doctors/specialty/Neurologist",  description: "List neurologists" },
-              { method: "GET",  path: "/api/doctors/:id",                    description: "Therapist profile & details" },
-              { method: "GET",  path: "/api/appointments/available-slots/:id", description: "Available session slots" },
-              { method: "POST", path: "/api/appointments",                   description: "Book a therapy session" },
-            ]}
-          />
         </div>
       )}
     </div>
