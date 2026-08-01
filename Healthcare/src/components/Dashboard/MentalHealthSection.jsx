@@ -662,20 +662,20 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
 
           {/* Game Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Thought Battle Game Card */}
+            {/* Thought Battle Game Card -> Clarity Strike */}
             <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl p-8 backdrop-blur-sm border border-purple-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Swords size={32} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-poppins font-bold text-2xl text-white">Thought Battle Arena</h3>
-                  <p className="text-purple-300">CBT-Based Combat Game</p>
+                  <h3 className="font-poppins font-bold text-2xl text-white">Clarity Strike</h3>
+                  <p className="text-purple-300">Fight back against negative thoughts.</p>
                 </div>
               </div>
 
               <p className="text-gray-300 mb-6 leading-relaxed">
-                Face negative thought monsters and defeat them by choosing healthy, rational responses based on Cognitive Behavioral Therapy principles.
+                Face a thought that's been weighing on you. Respond with something honest and balanced, and watch it lose its grip. No fixed answers — you write your own response, and it's judged on whether it actually helps.
               </p>
 
               <div className="bg-purple-700/30 rounded-xl p-4 mb-6">
@@ -713,20 +713,20 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
             </div>
 
 
-            {/* Thought Reframer Card */}
+            {/* Thought Reframer Card -> Sanctuary Suites */}
             <div className="bg-gradient-to-br from-indigo-900/50 to-teal-900/50 rounded-2xl p-8 backdrop-blur-sm border border-teal-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-teal-500 to-indigo-500 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Brain size={32} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="font-poppins font-bold text-2xl text-white">Thought Reframer</h3>
-                  <p className="text-teal-300">CBT Cognitive Exercises</p>
+                  <h3 className="font-poppins font-bold text-2xl text-white">Sanctuary Suites</h3>
+                  <p className="text-teal-300">Every room holds a different struggle.</p>
                 </div>
               </div>
 
               <p className="text-gray-300 mb-6 leading-relaxed">
-                Deconstruct automated negative thought patterns. Select a distortion type, analyze its core flaws, and write balanced reframes to weaken it.
+                Step into a quiet hotel built from your own mind. Each room holds a different issue — walk in, talk it through, and leave a little lighter. Explore at your own pace, in any order you choose.
               </p>
 
               <div className="bg-teal-700/30 rounded-xl p-4 mb-6">
