@@ -32,7 +32,7 @@ class GrowingTreeRegressionTest(unittest.TestCase):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
         
-        def mock_generate_content(*args, **kwargs):
+        def mock_generate_content_stream(*args, **kwargs):
             contents_arg = kwargs.get('contents', '')
             if not contents_arg and len(args) > 1:
                 contents_arg = args[1]
@@ -43,9 +43,9 @@ class GrowingTreeRegressionTest(unittest.TestCase):
             mood_match = re.search(r'The user shared their current mood/feeling: "([^"]+)"', contents_arg)
             current_mood = mood_match.group(1).lower() if mood_match else contents_arg.lower()
             
-            mock_response = MagicMock()
+            mock_chunk = MagicMock()
             if "dog" in current_mood:
-                mock_response.text = json.dumps({
+                mock_chunk.text = json.dumps({
                     "acknowledgment": "I'm so sorry to hear about your dog.",
                     "tasks": [
                         {"id": "d1", "text": "Find a favorite photo of your dog.", "size": 1},
@@ -53,7 +53,7 @@ class GrowingTreeRegressionTest(unittest.TestCase):
                     ]
                 })
             elif "lonely" in current_mood or "bored" in current_mood:
-                mock_response.text = json.dumps({
+                mock_chunk.text = json.dumps({
                     "acknowledgment": "Feeling lonely or bored is tough.",
                     "tasks": [
                         {"id": "b1", "text": "Do a quick 5-minute stretch.", "size": 1},
@@ -61,15 +61,15 @@ class GrowingTreeRegressionTest(unittest.TestCase):
                     ]
                 })
             else:
-                mock_response.text = json.dumps({
+                mock_chunk.text = json.dumps({
                     "acknowledgment": "Let's take a small step.",
                     "tasks": [
                         {"id": "g1", "text": "Take a deep breath.", "size": 1}
                     ]
                 })
-            return mock_response
+            return [mock_chunk]
             
-        mock_client.models.generate_content.side_effect = mock_generate_content
+        mock_client.models.generate_content_stream.side_effect = mock_generate_content_stream
 
         with self.app.app_context():
             token = create_access_token(identity='test_user_id')
@@ -82,7 +82,15 @@ class GrowingTreeRegressionTest(unittest.TestCase):
                 headers=headers
             )
             self.assertEqual(response1.status_code, 200)
-            data1 = response1.get_json()
+            
+            full_text1 = ""
+            for chunk in response1.response:
+                chunk_str = chunk.decode('utf-8')
+                for line in chunk_str.split("\n\n"):
+                    if line.startswith("data: "):
+                        full_text1 += line[6:]
+            
+            data1 = json.loads(full_text1)
             tasks1 = [t['text'] for t in data1['tasks']]
 
             # Call 2: "I'm bored and unmotivated"
@@ -92,7 +100,15 @@ class GrowingTreeRegressionTest(unittest.TestCase):
                 headers=headers
             )
             self.assertEqual(response2.status_code, 200)
-            data2 = response2.get_json()
+
+            full_text2 = ""
+            for chunk in response2.response:
+                chunk_str = chunk.decode('utf-8')
+                for line in chunk_str.split("\n\n"):
+                    if line.startswith("data: "):
+                        full_text2 += line[6:]
+
+            data2 = json.loads(full_text2)
             tasks2 = [t['text'] for t in data2['tasks']]
 
             # Assert task outputs are NOT identical
@@ -105,7 +121,7 @@ class GrowingTreeRegressionTest(unittest.TestCase):
         # Setup mock client to throw an exception
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
-        mock_client.models.generate_content.side_effect = Exception("API Key reported as leaked / Perm Denied")
+        mock_client.models.generate_content_stream.side_effect = Exception("API Key reported as leaked / Perm Denied")
         
         with self.app.app_context():
             token = create_access_token(identity='test_user_id')
@@ -116,10 +132,11 @@ class GrowingTreeRegressionTest(unittest.TestCase):
                 json={'player_statement': 'my dog died'},
                 headers=headers
             )
-            # Must return 502 Bad Gateway
-            self.assertEqual(response.status_code, 502)
-            data = response.get_json()
-            self.assertIn("Failed to generate tasks due to an upstream API error", data['msg'])
+            
+            # SSE returns 200 but includes an error event in the body stream
+            self.assertEqual(response.status_code, 200)
+            body = response.get_data(as_text=True)
+            self.assertIn("event: error", body)
 
     @patch('google.genai.Client')
     def test_something_else_bothering_you_fresh_thread(self, mock_client_cls):
@@ -128,33 +145,35 @@ class GrowingTreeRegressionTest(unittest.TestCase):
 
         generated_prompts = []
 
-        def mock_generate_content(*args, **kwargs):
+        def mock_generate_content_stream(*args, **kwargs):
             contents_arg = kwargs.get('contents', '')
             if not contents_arg and len(args) > 1:
                 contents_arg = args[1]
             generated_prompts.append(str(contents_arg))
 
-            mock_response = MagicMock()
-            mock_response.text = json.dumps({
+            mock_chunk = MagicMock()
+            mock_chunk.text = json.dumps({
                 "acknowledgment": "Focusing on something new.",
                 "tasks": [
                     {"id": "tnew", "text": "Do a new task.", "size": 1}
                 ]
             })
-            return mock_response
+            return [mock_chunk]
 
-        mock_client.models.generate_content.side_effect = mock_generate_content
+        mock_client.models.generate_content_stream.side_effect = mock_generate_content_stream
 
         with self.app.app_context():
             token = create_access_token(identity='test_user_id')
             headers = {'Authorization': f'Bearer {token}'}
 
             # 1. Submit initial concern: "my dog died"
-            self.client.post(
+            res1 = self.client.post(
                 '/api/growing-tree/generate-tasks',
                 json={'player_statement': 'my dog died'},
                 headers=headers
             )
+            # Consume stream to trigger db save
+            _ = res1.get_data()
 
             # 2. Complete a task to increase growth
             complete_res = self.client.post(
@@ -176,6 +195,8 @@ class GrowingTreeRegressionTest(unittest.TestCase):
                 headers=headers
             )
             self.assertEqual(new_thread_res.status_code, 200)
+            # Consume stream to trigger db save
+            _ = new_thread_res.get_data()
 
             # 4. Assert:
             # - A: Tree growth value persists and does not reset to 0

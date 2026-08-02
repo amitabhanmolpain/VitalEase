@@ -1,8 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models.growing_tree_model import GrowingTreeState
-from app.services.tree_task_generator import generate_task_list
+from app.services.tree_task_generator import generate_task_list, generate_task_list_stream
 from datetime import datetime
+import uuid
+import json
 
 growing_tree_bp = Blueprint('growing_tree', __name__, url_prefix='/api/growing-tree')
 
@@ -13,20 +15,30 @@ def get_tree_state():
         user_id = get_jwt_identity()
         state = GrowingTreeState.objects(user_id=user_id).first()
         if not state:
-            state = GrowingTreeState(user_id=user_id, tree_growth=0, tasks=[])
-            state.save()
+            # Return fresh seed state if no record exists yet
+            return jsonify({
+                'tree_growth': 0,
+                'tasks': [],
+                'completed_tasks': [],
+                'remaining_tasks': [],
+                'acknowledgment': '',
+                'needs_human_support': False,
+                'support_message': '',
+                'current_mood': ''
+            }), 200
         return jsonify(state.to_dict()), 200
     except Exception as e:
         print(f"[Growing Tree State Error] {e}")
+        # Return a synthetic success so the UI doesn't get stuck
         return jsonify({
-            "tree_growth": 0,
-            "completed_tasks": [],
-            "remaining_tasks": [],
-            "tasks": [],
-            "current_mood": "",
-            "acknowledgment": "",
-            "needs_human_support": False,
-            "support_message": ""
+            'tree_growth': 0,
+            'tasks': [],
+            'completed_tasks': [],
+            'remaining_tasks': [],
+            'acknowledgment': '',
+            'needs_human_support': False,
+            'support_message': '',
+            'current_mood': ''
         }), 200
 
 @growing_tree_bp.route('/generate-tasks', methods=['POST'])
@@ -62,50 +74,55 @@ def generate_tasks():
         else:
             temp_history = list(mood_history) + [player_statement]
 
-        # Generate tasks & safety evaluation with context & history
-        result = generate_task_list(player_statement, previous_task_context, temp_history)
+        # Initialize state model if not exists
+        db_state = state if state else GrowingTreeState(user_id=user_id)
 
-        if not state:
-            state = GrowingTreeState(user_id=user_id)
-            state.mood_history = [player_statement]
-        else:
-            state.mood_history = temp_history
+        def generate():
+            full_text = ""
+            try:
+                # Stream chunk-by-chunk from Gemini
+                for chunk in generate_task_list_stream(player_statement, previous_task_context, temp_history):
+                    full_text += chunk
+                    yield f"data: {chunk}\n\n"
+            except Exception as stream_err:
+                print(f"[Streaming error during call] {stream_err}")
+                yield f"event: error\ndata: {json.dumps({'msg': str(stream_err)})}\n\n"
+                return
 
-        state.current_mood = player_statement
-        state.last_updated = datetime.utcnow()
+            # After generator finishes successfully, parse full_text and save state
+            try:
+                result = json.loads(full_text)
+                
+                # Check for needs_human_support
+                if result.get("needs_human_support"):
+                    db_state.needs_human_support = True
+                    db_state.support_message = result.get("message")
+                    db_state.tasks = []
+                    db_state.acknowledgment = ""
+                else:
+                    db_state.needs_human_support = False
+                    db_state.support_message = ""
+                    db_state.acknowledgment = result.get("acknowledgment", "Let's take things one step at a time.")
+                    
+                    formatted_tasks = []
+                    for task in result.get("tasks", []):
+                        formatted_tasks.append({
+                            "id": str(task.get("id")) if task.get("id") else str(uuid.uuid4())[:8],
+                            "text": task.get("text"),
+                            "size": int(task.get("size", 1)),
+                            "completed": False
+                        })
+                    db_state.tasks = formatted_tasks
 
-        if result.get("needs_human_support"):
-            state.needs_human_support = True
-            state.support_message = result.get("message")
-            state.tasks = []
-            state.acknowledgment = ""
-            state.save()
-            return jsonify({
-                "needs_human_support": True,
-                "message": result.get("message")
-            }), 200
+                db_state.current_mood = player_statement
+                db_state.mood_history = temp_history
+                db_state.last_updated = datetime.utcnow()
+                db_state.save()
+            except Exception as e:
+                # If JSON parsing failed at the end of the stream
+                print(f"[Streaming state save error] {e}")
 
-        # Normal flow
-        state.needs_human_support = False
-        state.support_message = ""
-        state.acknowledgment = result.get("acknowledgment", "Let's take things one step at a time.")
-        
-        # Format task structure for state tracking
-        formatted_tasks = []
-        for task in result.get("tasks", []):
-            formatted_tasks.append({
-                "id": str(task.get("id")),
-                "text": task.get("text"),
-                "size": int(task.get("size", 1)),
-                "completed": False
-            })
-        state.tasks = formatted_tasks
-        state.save()
-
-        return jsonify({
-            "tasks": state.tasks,
-            "acknowledgment": state.acknowledgment
-        }), 200
+        return Response(generate(), mimetype='text/event-stream')
 
     except Exception as e:
         print(f"[Growing Tree Route Error] {e}")

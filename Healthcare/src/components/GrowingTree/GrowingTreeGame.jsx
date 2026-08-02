@@ -108,6 +108,7 @@ const GrowingTreeGame = ({ onExit }) => {
   const [resetting, setResetting] = useState(false);
   const [isNewThreadMode, setIsNewThreadMode] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [streamingText, setStreamingText] = useState("");
 
   // Growth animation state
   const [growing, setGrowing] = useState(false);
@@ -170,21 +171,41 @@ const GrowingTreeGame = ({ onExit }) => {
     try {
       setSubmitting(true);
       setApiError("");
-      const data = await growingTreeAPI.generateTasks(statementInput, isNewThreadMode);
-      if (data.needs_human_support) {
-        setTreeState(prev => ({ ...prev, needs_human_support: true, support_message: data.message, tasks: [], acknowledgment: "" }));
-      } else {
-        const tasks = (data.tasks || []).map(t => ({ ...t, completed: t.completed || false }));
-        setTreeState(prev => ({ ...prev, tasks, acknowledgment: data.acknowledgment || "", needs_human_support: false, support_message: "" }));
-      }
-      setStatementInput("");
-      setIsNewThreadMode(false);
-    } catch (err) {
-      console.error("Failed to generate tasks", err);
-      const errMsg = err.response?.data?.msg || err.message || "Failed to generate tasks due to an upstream API error.";
-      setApiError(errMsg);
-      // Clean tasks in case of error so we don't render empty/broken task sheet
-      setTreeState(prev => ({ ...prev, tasks: [] }));
+      setStreamingText("");
+      
+      let accumulated = "";
+      
+      await growingTreeAPI.generateTasksStream(
+        statementInput,
+        isNewThreadMode,
+        (chunk) => {
+          accumulated += chunk;
+          setStreamingText(accumulated);
+        },
+        () => {
+          try {
+            const data = JSON.parse(accumulated);
+            if (data.needs_human_support) {
+              setTreeState(prev => ({ ...prev, needs_human_support: true, support_message: data.message, tasks: [], acknowledgment: "" }));
+            } else {
+              const tasks = (data.tasks || []).map(t => ({ ...t, completed: t.completed || false }));
+              setTreeState(prev => ({ ...prev, tasks, acknowledgment: data.acknowledgment || "", needs_human_support: false, support_message: "" }));
+            }
+            setStatementInput("");
+            setIsNewThreadMode(false);
+            setStreamingText("");
+          } catch (jsonErr) {
+            console.error("Failed to parse streamed response", jsonErr);
+            setApiError("Failed to process server response. Please try again.");
+          }
+        },
+        (err) => {
+          console.error("Failed to generate tasks stream", err);
+          setApiError(err.message || "Failed to generate tasks due to an upstream API error.");
+          setTreeState(prev => ({ ...prev, tasks: [] }));
+          setStreamingText("");
+        }
+      );
     } finally {
       setSubmitting(false);
     }
@@ -476,6 +497,12 @@ const GrowingTreeGame = ({ onExit }) => {
                     required
                   />
                 </div>
+                {submitting && (
+                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-mono text-[11px] leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap">
+                    <span className="animate-pulse inline-block mr-1">✦</span>
+                    {streamingText ? "Generating tasks..." : "Connecting to Gemini..."}
+                  </div>
+                )}
                 {apiError && (
                   <div className="flex items-center gap-2 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-semibold leading-relaxed">
                     <AlertCircle size={16} className="shrink-0" />
