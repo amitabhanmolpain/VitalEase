@@ -9,6 +9,7 @@ class GrowingTreeState(Document):
     tasks = ListField(DictField(), default=list)  # List of generated tasks: {"id": str, "text": str, "size": int, "completed": bool}
     needs_human_support = BooleanField(default=False)
     support_message = StringField(default="")
+    mood_history = ListField(StringField(), default=list)  # Stores consecutive user feelings/concern statements
     last_updated = DateTimeField(default=datetime.utcnow)
     
     # Legacy fields to support backward compatibility with documents in MongoDB

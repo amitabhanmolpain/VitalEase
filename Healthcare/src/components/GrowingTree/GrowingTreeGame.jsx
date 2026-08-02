@@ -106,7 +106,8 @@ const GrowingTreeGame = ({ onExit }) => {
   const [submitting, setSubmitting] = useState(false);
   const [completingTaskId, setCompletingTaskId] = useState(null);
   const [resetting, setResetting] = useState(false);
-  const [confirmReplant, setConfirmReplant] = useState(false);
+  const [isNewThreadMode, setIsNewThreadMode] = useState(false);
+  const [apiError, setApiError] = useState("");
 
   // Growth animation state
   const [growing, setGrowing] = useState(false);
@@ -168,7 +169,8 @@ const GrowingTreeGame = ({ onExit }) => {
     if (!statementInput.trim()) return;
     try {
       setSubmitting(true);
-      const data = await growingTreeAPI.generateTasks(statementInput);
+      setApiError("");
+      const data = await growingTreeAPI.generateTasks(statementInput, isNewThreadMode);
       if (data.needs_human_support) {
         setTreeState(prev => ({ ...prev, needs_human_support: true, support_message: data.message, tasks: [], acknowledgment: "" }));
       } else {
@@ -176,18 +178,16 @@ const GrowingTreeGame = ({ onExit }) => {
         setTreeState(prev => ({ ...prev, tasks, acknowledgment: data.acknowledgment || "", needs_human_support: false, support_message: "" }));
       }
       setStatementInput("");
+      setIsNewThreadMode(false);
     } catch (err) {
-      setTreeState(prev => ({
-        ...prev,
-        tasks: [
-          { id: "t1", text: "Drink a glass of water slowly.", size: 1, completed: false },
-          { id: "t2", text: "Sit somewhere comfortable for a few minutes.", size: 1, completed: false },
-          { id: "t3", text: "Step outside or open a window.", size: 2, completed: false }
-        ],
-        acknowledgment: "I hear you. Let's take it one small step at a time.",
-        needs_human_support: false
-      }));
-    } finally { setSubmitting(false); }
+      console.error("Failed to generate tasks", err);
+      const errMsg = err.response?.data?.msg || err.message || "Failed to generate tasks due to an upstream API error.";
+      setApiError(errMsg);
+      // Clean tasks in case of error so we don't render empty/broken task sheet
+      setTreeState(prev => ({ ...prev, tasks: [] }));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCompleteTask = async (taskId) => {
@@ -227,7 +227,6 @@ const GrowingTreeGame = ({ onExit }) => {
   };
 
   const handleReplant = async () => {
-    setConfirmReplant(false);
     setResetting(true);
     // Fade out then swap to seedling
     setImgFading(true);
@@ -357,7 +356,12 @@ const GrowingTreeGame = ({ onExit }) => {
 
           {/* Replant button — proper button */}
           <button
-            onClick={() => setConfirmReplant(true)}
+            onClick={() => {
+              // Start a fresh concern thread without resetting the growth progress
+              setTreeState(prev => ({ ...prev, tasks: [] }));
+              setIsNewThreadMode(true);
+              setStatementInput("");
+            }}
             disabled={resetting}
             className="mt-2 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/30 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 font-semibold text-sm transition-all duration-200 group"
           >
@@ -472,6 +476,12 @@ const GrowingTreeGame = ({ onExit }) => {
                     required
                   />
                 </div>
+                {apiError && (
+                  <div className="flex items-center gap-2 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-semibold leading-relaxed">
+                    <AlertCircle size={16} className="shrink-0" />
+                    <span>{apiError}</span>
+                  </div>
+                )}
                 <button
                   type="submit"
                   disabled={submitting || !statementInput.trim()}
@@ -487,40 +497,6 @@ const GrowingTreeGame = ({ onExit }) => {
         </section>
       </main>
 
-      {/* ── Confirm Replant Dialog ── */}
-      {confirmReplant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setConfirmReplant(false)}
-          />
-          {/* Dialog */}
-          <div className="relative z-10 bg-slate-900/90 border border-white/10 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
-            {/* Big seedling emoji */}
-            <div className="text-6xl mb-4 animate-bounce">🌱</div>
-            <h2 className="text-white font-extrabold text-xl mb-2">Replant your tree?</h2>
-            <p className="text-white/50 text-sm leading-relaxed mb-6">
-              Your tree will go back to a <span className="text-amber-300 font-semibold">tiny seedling</span>.
-              All current tasks and growth will be cleared so you can start fresh with something new on your mind.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setConfirmReplant(false)}
-                className="flex-1 py-3 rounded-2xl bg-white/8 hover:bg-white/15 text-white/70 hover:text-white font-bold text-sm transition border border-white/10"
-              >
-                Keep growing
-              </button>
-              <button
-                onClick={handleReplant}
-                className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-400 hover:to-orange-300 text-slate-950 font-extrabold text-sm transition hover:scale-[1.03] shadow-lg"
-              >
-                🌱 Yes, replant
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -35,17 +35,41 @@ def generate_tasks():
     user_id = get_jwt_identity()
     data = request.get_json() or {}
     player_statement = data.get('player_statement', '').strip()
+    is_new_thread = data.get('is_new_thread', False)
 
     if not player_statement:
         return jsonify({'msg': 'Statement is required.'}), 400
 
     try:
-        # Generate tasks & safety evaluation
-        result = generate_task_list(player_statement)
-
+        # Fetch existing state first to read previous tasks context and mood history
         state = GrowingTreeState.objects(user_id=user_id).first()
+        previous_task_context = ""
+        mood_history = []
+        
+        # If not starting a new thread, retrieve history & previous tasks
+        if state and not is_new_thread:
+            mood_history = getattr(state, 'mood_history', []) or []
+            if state.tasks and len(state.tasks) > 0:
+                last_task = state.tasks[-1]
+                last_text = last_task.get("text", "")
+                last_completed = last_task.get("completed", False)
+                status_str = "completed it" if last_completed else "did not complete/struggled with it"
+                previous_task_context = f"Their last task was '{last_text}', and they {status_str}."
+
+        # Setup history context for this run
+        if is_new_thread:
+            temp_history = [player_statement]
+        else:
+            temp_history = list(mood_history) + [player_statement]
+
+        # Generate tasks & safety evaluation with context & history
+        result = generate_task_list(player_statement, previous_task_context, temp_history)
+
         if not state:
             state = GrowingTreeState(user_id=user_id)
+            state.mood_history = [player_statement]
+        else:
+            state.mood_history = temp_history
 
         state.current_mood = player_statement
         state.last_updated = datetime.utcnow()
@@ -86,13 +110,8 @@ def generate_tasks():
     except Exception as e:
         print(f"[Growing Tree Route Error] {e}")
         return jsonify({
-            "tasks": [
-                {"id": "t1", "text": "Drink a glass of water.", "size": 1},
-                {"id": "t2", "text": "Sit down comfortably for a few minutes.", "size": 1},
-                {"id": "t3", "text": "Take a short walk or stretch.", "size": 2}
-            ],
-            "acknowledgment": "I hear you. Let's take things slow today with a few tiny tasks."
-        }), 200
+            "msg": f"Failed to generate tasks due to an upstream API error: {str(e)}"
+        }), 502
 
 @growing_tree_bp.route('/complete-task', methods=['POST'])
 @jwt_required()
@@ -174,6 +193,7 @@ def reset_tree():
             state.current_mood = ""
             state.needs_human_support = False
             state.support_message = ""
+            state.mood_history = []
             state.last_updated = datetime.utcnow()
             state.save()
         return jsonify({

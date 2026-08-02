@@ -4,6 +4,9 @@ import uuid
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Define schema for valid task list generation
 class TaskItem(BaseModel):
@@ -15,7 +18,7 @@ class TaskListGeneration(BaseModel):
     tasks: list[TaskItem] = Field(description="A list of 3 to 5 tasks ordered from easiest/gentlest to slightly bigger.")
     acknowledgment: str = Field(description="One short warm sentence acknowledging the user's feelings and situation.")
 
-def generate_task_list(player_statement: str) -> dict:
+def generate_task_list(player_statement: str, previous_task_context: str = "", mood_history: list = None) -> dict:
     """
     Evaluates player statement for safety first.
     If self-harm/suicidal/abuse triggers are hit, returns crisis response.
@@ -35,62 +38,56 @@ def generate_task_list(player_statement: str) -> dict:
     if not api_key:
         return get_fallback_tasks(player_statement)
 
-    try:
-        client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
-        prompt = f"""
-You are a warm, gentle, and non-clinical assistant generating supportive real-world tasks for someone going through a tough time.
-The user shared: "{player_statement}"
+    # Context build
+    context_lines = []
+    if mood_history and len(mood_history) > 1:
+        context_lines.append(f"Conversation Mood History (earliest to latest):")
+        for idx, h in enumerate(mood_history[:-1]):
+            context_lines.append(f" - Statement {idx+1}: \"{h}\"")
+    
+    if previous_task_context:
+        context_lines.append(f"Previous Task State: {previous_task_context}")
+        
+    context_str = ""
+    if context_lines:
+        context_str = "\n" + "\n".join(context_lines)
 
-Task requirements:
-1. Safety First: If the statement indicates self-harm, suicide, or abuse, return human support instructions. (Our local code checks this, but you must too).
-2. Generate 3 to 5 realistic, small tasks ordered from easiest/gentlest (level 1) to slightly more effortful (level 3).
-3. Personalize: Tasks must match the statement. E.g. grief inputs should get extremely gentle initial tasks like "drink a glass of water" or "sit somewhere comfortable for a few minutes". General low-motivation can start slightly more active.
-4. Language: Keep it simple, warm, short. No clinical wording, no toxic positivity, and no guilt.
-5. Provide a warm, short acknowledgment sentence first.
+    prompt = f"""
+You are a warm, gentle, and non-clinical AI assistant generating supportive, real-world micro-tasks for someone going through a difficult time.
+The user shared their current mood/feeling: "{player_statement}"
+{context_str}
+
+CRITICAL RULES FOR GENERATION:
+1. RELEVANCE: All tasks MUST be directly related to the user's situation and feelings. E.g., if their dog died, do NOT generate generic tasks like "wash a dish" or "clean a window". Instead, generate tasks like "look at a photo of your dog", "light a candle for them", "pat their favorite spot", or "sit quietly with their memories".
+2. PROGRESSIVE DIFFICULTY: Look at "Previous Task State". If they completed the last task, make the new tasks slightly bigger (step up the level/action slightly). If they struggled, make the tasks even smaller and gentler.
+3. TASK VARIABILITY: Never repeat the previous tasks or return identical lists. Every time the user asks, generate fresh, creative ideas tailored to their exact state.
+4. TASK STRUCTURE: Generate 3 to 5 realistic, small tasks ordered from easiest/gentlest (level 1) to slightly more effortful (level 3).
+5. Language: Keep it simple, warm, and short. No clinical wording, no toxic positivity, and no guilt.
+6. Provide a warm, short acknowledgment sentence first.
 """
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=TaskListGeneration,
-                temperature=0.7,
-            )
+    print("=================== GEMINI PROMPT ===================")
+    print(prompt)
+    print("=====================================================")
+
+    response = client.models.generate_content(
+        model='gemini-3.5-flash-lite',
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=TaskListGeneration,
+            temperature=0.8, # Slightly higher temperature for freshness
         )
-        data = json.loads(response.text)
-        
-        # Ensure IDs are unique/clean
-        for task in data.get('tasks', []):
-            if not task.get('id'):
-                task['id'] = str(uuid.uuid4())[:8]
-        return data
-
-    except Exception as e:
-        print(f"[GrowingTree Gemini Error] {e}")
-        return get_fallback_tasks(player_statement)
-
-def get_fallback_tasks(player_statement: str) -> dict:
-    """Generates simple fallback tasks if the Gemini API call fails."""
-    player_statement_lower = player_statement.lower()
+    )
+    print("=================== RAW GEMINI RESPONSE ===================")
+    print(response.text)
+    print("===========================================================")
+    data = json.loads(response.text)
     
-    # Simple check for grief
-    if any(kw in player_statement_lower for kw in ["die", "died", "grief", "sad", "depressed", "lose", "lost"]):
-        return {
-            "tasks": [
-                {"id": "t1", "text": "Drink a glass of water slowly.", "size": 1},
-                {"id": "t2", "text": "Sit in a comfortable spot and close your eyes for two minutes.", "size": 1},
-                {"id": "t3", "text": "Step outside or open a window to look at the sky.", "size": 2}
-            ],
-            "acknowledgment": "I'm so sorry you are going through this heavy loss. Let's take today one very small step at a time."
-        }
-    else:
-        return {
-            "tasks": [
-                {"id": "t1", "text": "Stretch your arms and take three deep breaths.", "size": 1},
-                {"id": "t2", "text": "Wash your face with cool water.", "size": 1},
-                {"id": "t3", "text": "Walk around your room for a minute.", "size": 2}
-            ],
-            "acknowledgment": "I hear you. On days when energy is low, starting small is the best thing we can do."
-        }
+    # Ensure IDs are unique/clean
+    for task in data.get('tasks', []):
+        if not task.get('id'):
+            task['id'] = str(uuid.uuid4())[:8]
+    return data
