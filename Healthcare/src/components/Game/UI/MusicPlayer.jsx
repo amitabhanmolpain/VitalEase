@@ -1,12 +1,66 @@
 import { motion } from 'framer-motion';
 import { X, Music, Minimize2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const MusicPlayer = ({ onClose }) => {
   const [isMinimized, setIsMinimized] = useState(true);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    const audio = new Audio("https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3");
+    audio.loop = true;
+    audio.volume = 0.4;
+    
+    const playAudio = () => {
+      if (audio.paused) {
+        audio.play().catch(err => console.log("Play failed:", err));
+      }
+    };
+
+    audio.play().catch(err => {
+      console.log("Autoplay blocked, waiting for interaction");
+      window.addEventListener('click', playAudio, { once: true });
+      window.addEventListener('keydown', playAudio, { once: true });
+    });
+    audioRef.current = audio;
+
+    // Audio ducking interval: Check if TTS is speaking and lower music volume!
+    const interval = setInterval(() => {
+      if (audioRef.current) {
+        const isSpeaking = window.speechSynthesis && window.speechSynthesis.speaking;
+        if (isSpeaking) {
+          // Lower volume slightly so it's still audible in background
+          if (audioRef.current.volume !== 0.08) {
+            audioRef.current.volume = 0.08;
+          }
+        } else {
+          // Restore to 0.4
+          if (audioRef.current.volume !== 0.4) {
+            audioRef.current.volume = 0.4;
+          }
+        }
+      }
+    }, 100);
+
+    return () => {
+      clearInterval(interval);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleTogglePlay = () => {
+    if (!audioRef.current) return;
+    if (audioRef.current.paused) {
+      audioRef.current.play().catch(err => console.log(err));
+    } else {
+      audioRef.current.pause();
+    }
+  };
 
   if (isMinimized) {
-    // Minimized floating button
     return (
       <motion.button
         initial={{ scale: 0 }}
@@ -22,21 +76,10 @@ const MusicPlayer = ({ onClose }) => {
         >
           <Music size={28} className="text-white" />
         </motion.div>
-        {/* Hidden audio player */}
-        <div className="sr-only">
-          <iframe
-            width="0"
-            height="0"
-            src="https://www.youtube.com/embed/30sCS6_2CL4?autoplay=1&loop=1&playlist=30sCS6_2CL4"
-            title="Battle Music"
-            frameBorder="0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          ></iframe>
-        </div>
       </motion.button>
     );
   }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -76,7 +119,9 @@ const MusicPlayer = ({ onClose }) => {
             <motion.div
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
-              className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center"
+              className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-red-500 to-pink-500 rounded-full flex items-center justify-center cursor-pointer"
+              onClick={handleTogglePlay}
+              title="Click to Pause/Play"
             >
               <Music size={48} className="text-white" />
             </motion.div>
@@ -84,22 +129,9 @@ const MusicPlayer = ({ onClose }) => {
             <p className="text-purple-200">Keep fighting those negative thoughts!</p>
           </div>
 
-          {/* Hidden YouTube iframe for audio only */}
-          <div className="sr-only">
-            <iframe
-              width="0"
-              height="0"
-              src="https://www.youtube.com/embed/30sCS6_2CL4?autoplay=1&loop=1&playlist=30sCS6_2CL4"
-              title="Battle Music"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            ></iframe>
-          </div>
-
           <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
             <p className="text-white/90 text-center text-sm">
-              🎧 Audio is playing in the background. You can minimize this and continue playing!
+              🎧 Audio is playing in the background. It will automatically lower when the situation is read out loud!
             </p>
           </div>
         </div>

@@ -46,6 +46,22 @@ const BattleArena = ({ onExit }) => {
 
   const scenario = scenarios[currentScenario];
 
+  const speakSituation = (text) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.volume = 1.0;
+      utterance.rate = 0.95;
+      
+      const voices = window.speechSynthesis.getVoices();
+      const voice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Zira') || v.name.includes('David')));
+      if (voice) {
+        utterance.voice = voice;
+      }
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
   // Typing animation effect
   useEffect(() => {
     setDisplayedText('');
@@ -53,6 +69,9 @@ const BattleArena = ({ onExit }) => {
     let currentIndex = 0;
     const text = scenario.situation;
     
+    // Auto-speak situation loudly on load
+    speakSituation(text);
+
     const typingInterval = setInterval(() => {
       if (currentIndex < text.length) {
         setDisplayedText(text.substring(0, currentIndex + 1));
@@ -69,7 +88,12 @@ const BattleArena = ({ onExit }) => {
       }
     }, 30);
 
-    return () => clearInterval(typingInterval);
+    return () => {
+      clearInterval(typingInterval);
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, [currentScenario, scenario.situation]);
 
   useEffect(() => {
@@ -371,9 +395,20 @@ const BattleArena = ({ onExit }) => {
             transition={{ delay: 0.3 }}
           >
             <div className="mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles size={20} className="text-blue-400" />
-                <span className="text-blue-300 font-semibold text-sm">SITUATION</span>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={20} className="text-blue-400" />
+                  <span className="text-blue-300 font-semibold text-sm">SITUATION</span>
+                </div>
+                <motion.button
+                  onClick={() => speakSituation(scenario.situation)}
+                  className="p-2 bg-blue-500/20 hover:bg-blue-500/40 rounded-lg text-blue-300 transition"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  title="Read Aloud"
+                >
+                  <Volume2 size={16} />
+                </motion.button>
               </div>
               <motion.p
                 className="text-white text-xl leading-relaxed pl-4 border-l-4 border-blue-500"
