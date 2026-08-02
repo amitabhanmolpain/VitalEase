@@ -4,59 +4,100 @@ import { useState, useEffect, useRef } from 'react';
 
 const MusicPlayer = ({ onClose }) => {
   const [isMinimized, setIsMinimized] = useState(true);
-  const audioRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const masterGainRef = useRef(null);
+  const isPlayingRef = useRef(true);
 
   useEffect(() => {
-    const audio = new Audio("https://ia800704.us.archive.org/15/items/retro-game-music-pack/Retro%20Game%20Music%20Pack/Loop%2001.mp3");
-    audio.loop = true;
-    audio.volume = 0.4;
-    
-    const playAudio = () => {
-      if (audio.paused) {
-        audio.play().catch(err => console.log("Play failed:", err));
-      }
-    };
+    let timer = null;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
 
-    audio.play().catch(err => {
-      console.log("Autoplay blocked, waiting for interaction");
-      window.addEventListener('click', playAudio, { once: true });
-      window.addEventListener('keydown', playAudio, { once: true });
-    });
-    audioRef.current = audio;
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.15, ctx.currentTime);
+      masterGain.connect(ctx.destination);
+      masterGainRef.current = masterGain;
 
-    // Audio ducking interval: Check if TTS is speaking and lower music volume!
-    const interval = setInterval(() => {
-      if (audioRef.current) {
-        const isSpeaking = window.speechSynthesis && window.speechSynthesis.speaking;
-        if (isSpeaking) {
-          // Lower volume slightly so it's still audible in background
-          if (audioRef.current.volume !== 0.08) {
-            audioRef.current.volume = 0.08;
-          }
-        } else {
-          // Restore to 0.4
-          if (audioRef.current.volume !== 0.4) {
-            audioRef.current.volume = 0.4;
-          }
+      // Soft ambient 8-bit synth arpeggio progression (C - Am - F - G)
+      const chordProgressions = [
+        [261.63, 329.63, 392.00], // C major
+        [220.00, 261.63, 329.63], // A minor
+        [174.61, 220.00, 261.63], // F major
+        [196.00, 246.94, 293.66]  // G major
+      ];
+
+      let chordIdx = 0;
+      let noteIdx = 0;
+
+      const playNextSynthNote = () => {
+        if (!isPlayingRef.current || !audioCtxRef.current || audioCtxRef.current.state === 'closed') return;
+        if (ctx.state === 'suspended') {
+          ctx.resume();
         }
-      }
-    }, 100);
 
-    return () => {
-      clearInterval(interval);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
+        const chord = chordProgressions[chordIdx];
+        const freq = chord[noteIdx];
+
+        const osc = ctx.createOscillator();
+        const noteGain = ctx.createGain();
+        
+        osc.type = 'triangle'; // Soft retro synth wave
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+        noteGain.gain.setValueAtTime(0.08, ctx.currentTime);
+        noteGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+        osc.connect(noteGain);
+        noteGain.connect(masterGain);
+
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.4);
+
+        noteIdx++;
+        if (noteIdx >= chord.length) {
+          noteIdx = 0;
+          chordIdx = (chordIdx + 1) % chordProgressions.length;
+        }
+      };
+
+      // Play note every 300ms
+      timer = setInterval(playNextSynthNote, 300);
+
+      // Ducking interval: lower volume when TTS is speaking
+      const duckingInterval = setInterval(() => {
+        if (masterGainRef.current && audioCtxRef.current) {
+          const isSpeaking = window.speechSynthesis && window.speechSynthesis.speaking;
+          const targetVol = isSpeaking ? 0.03 : 0.15;
+          masterGainRef.current.gain.setTargetAtTime(targetVol, audioCtxRef.current.currentTime, 0.1);
+        }
+      }, 100);
+
+      return () => {
+        clearInterval(timer);
+        clearInterval(duckingInterval);
+        isPlayingRef.current = false;
+        if (audioCtxRef.current) {
+          audioCtxRef.current.close();
+        }
+      };
+    } catch (e) {
+      console.log("Web Audio Ambient Synth Init Error:", e);
+    }
   }, []);
 
   const handleTogglePlay = () => {
-    if (!audioRef.current) return;
-    if (audioRef.current.paused) {
-      audioRef.current.play().catch(err => console.log(err));
+    if (!masterGainRef.current || !audioCtxRef.current) return;
+    if (isPlayingRef.current) {
+      isPlayingRef.current = false;
+      masterGainRef.current.gain.setValueAtTime(0, audioCtxRef.current.currentTime);
     } else {
-      audioRef.current.pause();
+      isPlayingRef.current = true;
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+      masterGainRef.current.gain.setValueAtTime(0.15, audioCtxRef.current.currentTime);
     }
   };
 
@@ -72,7 +113,7 @@ const MusicPlayer = ({ onClose }) => {
       >
         <motion.div
           animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 3, ease: "linear" }}
+          transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
         >
           <Music size={28} className="text-white" />
         </motion.div>
@@ -131,7 +172,7 @@ const MusicPlayer = ({ onClose }) => {
 
           <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
             <p className="text-white/90 text-center text-sm">
-              🎧 Audio is playing in the background. It will automatically lower when the situation is read out loud!
+              🎧 Ambient synth loop is playing. It will automatically lower volume when scenario speech is active!
             </p>
           </div>
         </div>

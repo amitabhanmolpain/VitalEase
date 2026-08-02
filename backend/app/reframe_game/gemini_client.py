@@ -134,7 +134,10 @@ def generate_battle_scenario(level: int) -> dict:
     import random
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        return get_fallback_scenario(level)
+        sc = get_fallback_scenario(level)
+        sc["isFallback"] = True
+        sc["aiNotice"] = "Gemini API Key is missing. Playing offline scenario."
+        return sc
 
     try:
         # Determine difficulty and allowed monsters based on level
@@ -188,11 +191,16 @@ Ensure your response conforms strictly to the requested schema. Make the situati
             )
         )
 
-        return json.loads(response.text)
+        res_data = json.loads(response.text)
+        res_data["isFallback"] = False
+        return res_data
 
     except Exception as e:
         print(f"[Gemini Scenario Exception] Falling back to static scenario. Error: {e}")
-        return get_fallback_scenario(level)
+        sc = get_fallback_scenario(level)
+        sc["isFallback"] = True
+        sc["aiNotice"] = f"AI API Key error/quota exceeded: {str(e)[:80]}. Playing offline scenario."
+        return sc
 
 def get_fallback_scenario(level: int) -> dict:
     if level <= 2:

@@ -7,20 +7,19 @@ import json
 
 # --- Helper Functions ---
 def get_or_create_stats(user_id):
-    redis_key = f"player_stats:{user_id}"
-    stats_json = redis_client.get(redis_key)
-    if stats_json:
-        # Load from Redis cache
-        stats_dict = json.loads(stats_json)
-        stats = PlayerStats._from_son(stats_dict)
-        return stats
-    # Fallback to MongoDB
     try:
         stats = PlayerStats.objects.get(user_id=user_id)
     except DoesNotExist:
-        stats = PlayerStats(user_id=user_id)
+        stats = PlayerStats(user_id=user_id, updated_at=datetime.utcnow())
         stats.save()
-    # Cache in Redis
+    
+    # Ensure updated_at is a valid datetime object, never a dict
+    if not isinstance(stats.updated_at, datetime):
+        stats.updated_at = datetime.utcnow()
+        stats.save()
+
+    # Cache clean JSON in Redis
+    redis_key = f"player_stats:{user_id}"
     redis_client.set(redis_key, stats.to_json())
     return stats
 

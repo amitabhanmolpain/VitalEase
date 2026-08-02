@@ -141,16 +141,29 @@ const BattleArena = ({ onExit }) => {
       const now = ctx.currentTime;
       const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
       notes.forEach((freq, idx) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.25, now + idx * 0.08);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now + idx * 0.08);
-        osc.stop(now + idx * 0.08 + 0.5);
+        // Primary synth note (Triangle wave for chiptune warmth)
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.value = freq;
+        gain1.gain.setValueAtTime(0.3, now + idx * 0.07);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.4);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now + idx * 0.07);
+        osc1.stop(now + idx * 0.07 + 0.45);
+
+        // Harmonic shimmer note (Sine wave octave above)
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.value = freq * 1.5;
+        gain2.gain.setValueAtTime(0.15, now + idx * 0.07);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.35);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + idx * 0.07);
+        osc2.stop(now + idx * 0.07 + 0.4);
       });
     } catch (e) {
       console.error(e);
@@ -297,24 +310,31 @@ const BattleArena = ({ onExit }) => {
         incrementStreak();
         incrementVictories();
 
-        // Level up or Streak badge check
+        // Level up or victory/streak badge check
         const newXP = xp + 20;
         const newLevel = Math.floor(newXP / 100) + 1;
+        const isFirstVictory = (victories === 0);
+
         if (newLevel > oldLevel) {
           setTimeout(() => {
             playLevelUpSound();
             setUnlockedBadge(`Level ${newLevel} Warrior`);
-          }, 1200);
+          }, 800);
+        } else if (isFirstVictory && !badges.includes("Level 1 Warrior")) {
+          setTimeout(() => {
+            playLevelUpSound();
+            setUnlockedBadge("Level 1 Warrior");
+          }, 800);
         } else if (streak + 1 === 5 && !badges.includes("Mind Warrior")) {
           setTimeout(() => {
             playLevelUpSound();
             setUnlockedBadge("Mind Warrior");
-          }, 1200);
+          }, 800);
         } else if (streak + 1 === 10 && !badges.includes("Thought Champion")) {
           setTimeout(() => {
             playLevelUpSound();
             setUnlockedBadge("Thought Champion");
-          }, 1200);
+          }, 800);
         }
         
         const correctOption = scenario.options.find(opt => opt.isCorrect);
@@ -455,6 +475,24 @@ const BattleArena = ({ onExit }) => {
             </motion.button>
           </div>
         </div>
+
+        {/* AI Key Status Warning Banner */}
+        {scenario?.isFallback && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-2xl bg-amber-500/20 border border-amber-400/40 backdrop-blur-md flex items-center justify-between gap-3 text-amber-200 shadow-xl"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <p className="font-extrabold text-sm text-amber-300 tracking-wide uppercase">AI Offline Mode</p>
+                <p className="text-xs text-amber-200/90">{scenario?.aiNotice || "The AI API key is inactive or rate-limited. Playing curated offline scenario."}</p>
+              </div>
+            </div>
+            <span className="px-3 py-1 bg-amber-400/20 text-amber-300 text-xs font-bold rounded-full uppercase tracking-wider">Offline Mode</span>
+          </motion.div>
+        )}
 
         {/* Stats Bar */}
         <motion.div
