@@ -1,22 +1,118 @@
-import { useState, useEffect } from "react";
-import { ArrowLeft, Send, Leaf, RefreshCw, AlertCircle, Sparkles } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { ArrowLeft, Send, Leaf, RefreshCw, AlertCircle } from "lucide-react";
 import { growingTreeAPI } from "../../services/growingTreeApi";
 
+// ─── Sound Engine (Web Audio API — no files needed) ─────────────────────────
+const playGrowthSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const play = (freq, start, dur, type = "sine", gain = 0.18) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = type; osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + start + dur * 0.6);
+      g.gain.setValueAtTime(0, ctx.currentTime + start);
+      g.gain.linearRampToValueAtTime(gain, ctx.currentTime + start + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    // Leaf rustle chime — C E G B sequence
+    play(523, 0,    0.4, "triangle", 0.15);
+    play(659, 0.12, 0.4, "triangle", 0.12);
+    play(784, 0.24, 0.5, "triangle", 0.14);
+    play(988, 0.36, 0.6, "triangle", 0.13);
+    // Sub‑bass thump for "weight of growth"
+    play(80,  0,    0.3, "sine",     0.08);
+  } catch (_) {}
+};
+
+const playCompleteSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const play = (freq, start, dur, gain = 0.12) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "sine"; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, ctx.currentTime + start);
+      g.gain.linearRampToValueAtTime(gain, ctx.currentTime + start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    play(440, 0, 0.2); play(554, 0.1, 0.2); play(659, 0.2, 0.3);
+  } catch (_) {}
+};
+
+// ─── Tree Stages ─────────────────────────────────────────────────────────────
+const STAGES = [
+  { min: 0,  img: "/tree_stage_1.png", label: "Seedling",    desc: "A tiny sprout pushing through the soil" },
+  { min: 16, img: "/tree_stage_2.png", label: "Sapling",     desc: "Small and hopeful, reaching for the light" },
+  { min: 36, img: "/tree_stage_3.png", label: "Young Tree",  desc: "Branches forming, learning to stand tall" },
+  { min: 56, img: "/tree_stage_4.png", label: "Fuller Tree", desc: "Spreading wide with growing confidence" },
+  { min: 76, img: "/tree_stage_5.png", label: "Tall & Strong", desc: "Nearly there — roots deep, crown full" },
+  { min: 96, img: "/tree_stage_6.png", label: "Full Bloom",  desc: "Blossoms, fruit, and golden light 🌸" },
+];
+
+const getStage = (growth) => {
+  for (let i = STAGES.length - 1; i >= 0; i--) {
+    if (growth >= STAGES[i].min) return { ...STAGES[i], index: i };
+  }
+  return { ...STAGES[0], index: 0 };
+};
+
+// ─── Particle Component ───────────────────────────────────────────────────────
+const GrowthParticles = ({ active }) => {
+  if (!active) return null;
+  const particles = Array.from({ length: 18 }, (_, i) => ({
+    id: i,
+    x: 30 + Math.random() * 40,
+    delay: Math.random() * 0.5,
+    size: 4 + Math.random() * 8,
+    color: ["#34d399","#6ee7b7","#a7f3d0","#fbbf24","#86efac"][Math.floor(Math.random() * 5)],
+    angle: Math.random() * 360,
+    dist: 60 + Math.random() * 80,
+  }));
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.x}%`, bottom: "40%",
+            width: p.size, height: p.size,
+            background: p.color,
+            animation: `particle-fly 1.2s ease-out ${p.delay}s forwards`,
+            "--angle": `${p.angle}deg`,
+            "--dist": `${p.dist}px`,
+            opacity: 0,
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const GrowingTreeGame = ({ onExit }) => {
   const [treeState, setTreeState] = useState({
-    tree_growth: 0,
-    tasks: [],
-    completed_tasks: [],
-    remaining_tasks: [],
-    current_mood: "",
-    acknowledgment: "",
-    needs_human_support: false,
-    support_message: ""
+    tree_growth: 0, tasks: [], completed_tasks: [], remaining_tasks: [],
+    current_mood: "", acknowledgment: "", needs_human_support: false, support_message: ""
   });
   const [statementInput, setStatementInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [completingTaskId, setCompletingTaskId] = useState(null);
+
+  // Growth animation state
+  const [growing, setGrowing] = useState(false);
+  const [showParticles, setShowParticles] = useState(false);
+  const [stageUp, setStageUp] = useState(false);
+  const [displayedImg, setDisplayedImg] = useState("/tree_stage_1.png");
+  const [imgFading, setImgFading] = useState(false);
+  const prevStageRef = useRef(0);
 
   useEffect(() => {
     const link = document.createElement("link");
@@ -27,13 +123,42 @@ const GrowingTreeGame = ({ onExit }) => {
     return () => { document.head.removeChild(link); };
   }, []);
 
+  // Sync displayed image whenever growth changes — with crossfade if stage changed
+  useEffect(() => {
+    const stage = getStage(treeState.tree_growth || 0);
+    if (stage.index !== prevStageRef.current) {
+      // Stage changed — crossfade
+      setImgFading(true);
+      setTimeout(() => {
+        setDisplayedImg(stage.img);
+        setImgFading(false);
+        prevStageRef.current = stage.index;
+        setStageUp(true);
+        setTimeout(() => setStageUp(false), 3000);
+      }, 350);
+    } else {
+      setDisplayedImg(stage.img);
+    }
+  }, [treeState.tree_growth]);
+
+  const triggerGrowthAnimation = useCallback(() => {
+    setGrowing(true);
+    setShowParticles(true);
+    playGrowthSound();
+    setTimeout(() => setGrowing(false), 900);
+    setTimeout(() => setShowParticles(false), 1500);
+  }, []);
+
   const loadTreeState = async () => {
     try {
       const data = await growingTreeAPI.getState();
-      if (data) setTreeState(data);
-    } catch (err) {
-      console.error("Failed to load tree state", err);
-    }
+      if (data) {
+        setTreeState(data);
+        const stage = getStage(data.tree_growth || 0);
+        setDisplayedImg(stage.img);
+        prevStageRef.current = stage.index;
+      }
+    } catch (err) { console.error("Failed to load tree state", err); }
   };
 
   const handleSubmitStatement = async (e) => {
@@ -43,26 +168,13 @@ const GrowingTreeGame = ({ onExit }) => {
       setSubmitting(true);
       const data = await growingTreeAPI.generateTasks(statementInput);
       if (data.needs_human_support) {
-        setTreeState(prev => ({
-          ...prev,
-          needs_human_support: true,
-          support_message: data.message,
-          tasks: [],
-          acknowledgment: ""
-        }));
+        setTreeState(prev => ({ ...prev, needs_human_support: true, support_message: data.message, tasks: [], acknowledgment: "" }));
       } else {
-        const returnedTasks = (data.tasks || []).map(t => ({ ...t, completed: t.completed || false }));
-        setTreeState(prev => ({
-          ...prev,
-          tasks: returnedTasks,
-          acknowledgment: data.acknowledgment || "",
-          needs_human_support: false,
-          support_message: ""
-        }));
+        const tasks = (data.tasks || []).map(t => ({ ...t, completed: t.completed || false }));
+        setTreeState(prev => ({ ...prev, tasks, acknowledgment: data.acknowledgment || "", needs_human_support: false, support_message: "" }));
       }
       setStatementInput("");
     } catch (err) {
-      console.error("Failed to generate tasks", err);
       setTreeState(prev => ({
         ...prev,
         tasks: [
@@ -73,108 +185,98 @@ const GrowingTreeGame = ({ onExit }) => {
         acknowledgment: "I hear you. Let's take it one small step at a time.",
         needs_human_support: false
       }));
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   const handleCompleteTask = async (taskId) => {
     const task = treeState.tasks.find(t => t.id === taskId);
     const taskSize = task ? (task.size || 1) : 1;
+    playCompleteSound();
     try {
       setCompletingTaskId(taskId);
       const data = await growingTreeAPI.completeTask(taskId, taskSize);
+
       if (data && data.tasks && data.tasks.length > 0) {
+        const prevGrowth = treeState.tree_growth || 0;
         setTreeState(data);
+        if ((data.tree_growth || 0) > prevGrowth) triggerGrowthAnimation();
       } else {
-        const growthIncrement = taskSize * 10;
+        const inc = taskSize * 10;
         setTreeState(prev => ({
           ...prev,
-          tree_growth: Math.min(100, (prev.tree_growth || 0) + growthIncrement),
+          tree_growth: Math.min(100, (prev.tree_growth || 0) + inc),
           tasks: prev.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t)
         }));
+        triggerGrowthAnimation();
       }
-    } catch (err) {
-      const growthIncrement = taskSize * 10;
+    } catch (_) {
+      const inc = taskSize * 10;
       setTreeState(prev => ({
         ...prev,
-        tree_growth: Math.min(100, (prev.tree_growth || 0) + growthIncrement),
+        tree_growth: Math.min(100, (prev.tree_growth || 0) + inc),
         tasks: prev.tasks.map(t => t.id === taskId ? { ...t, completed: true } : t)
       }));
-    } finally {
-      setCompletingTaskId(null);
-    }
+      triggerGrowthAnimation();
+    } finally { setCompletingTaskId(null); }
   };
 
   const handleResetTasks = () => {
-    setTreeState(prev => ({
-      ...prev,
-      tasks: [],
-      acknowledgment: "",
-      needs_human_support: false,
-      support_message: ""
-    }));
+    setTreeState(prev => ({ ...prev, tasks: [], acknowledgment: "", needs_human_support: false, support_message: "" }));
   };
 
-  const getTreeStage = () => {
-    const g = treeState.tree_growth || 0;
-    if (g >= 96) return { img: "/tree_stage_6.png", label: "Full Bloom" };
-    if (g >= 76) return { img: "/tree_stage_5.png", label: "Nearly Full" };
-    if (g >= 56) return { img: "/tree_stage_4.png", label: "Fuller Tree" };
-    if (g >= 36) return { img: "/tree_stage_3.png", label: "Young Tree" };
-    if (g >= 16) return { img: "/tree_stage_2.png", label: "Sapling" };
-    return { img: "/tree_stage_1.png", label: "Seedling" };
-  };
-
+  const stage = getStage(treeState.tree_growth || 0);
   const hasTasks = treeState.tasks && treeState.tasks.length > 0;
-  const isSafetyTriggered = treeState.needs_human_support;
-  const stage = getTreeStage();
   const allDone = hasTasks && treeState.tasks.every(t => t.completed);
 
   return (
     <div
       className="min-h-screen w-full flex flex-col relative overflow-hidden"
-      style={{
-        backgroundImage: "url('/growing_tree_bg.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        fontFamily: "'Outfit', sans-serif"
-      }}
+      style={{ backgroundImage: "url('/growing_tree_bg.png')", backgroundSize: "cover", backgroundPosition: "center", fontFamily: "'Outfit', sans-serif" }}
     >
-      {/* Dark overlay for readability */}
       <div className="absolute inset-0 bg-black/45 z-0" />
 
-      {/* Inline styles */}
       <style>{`
-        .font-hand { font-family: 'Playpen Sans', 'Caveat', cursive; }
+        @keyframes particle-fly {
+          0%   { transform: translate(0,0) scale(1); opacity: 1; }
+          100% { transform: translate(calc(cos(var(--angle)) * var(--dist)), calc(sin(var(--angle)) * var(--dist) - 80px)) scale(0); opacity: 0; }
+        }
+        @keyframes tree-pop {
+          0%   { transform: scale(1); filter: brightness(1); }
+          30%  { transform: scale(1.12); filter: brightness(1.5) drop-shadow(0 0 24px #34d399); }
+          60%  { transform: scale(1.06); filter: brightness(1.2) drop-shadow(0 0 12px #34d399); }
+          100% { transform: scale(1); filter: brightness(1); }
+        }
+        @keyframes stage-badge {
+          0%   { opacity: 0; transform: translateY(12px) scale(0.9); }
+          15%  { opacity: 1; transform: translateY(0) scale(1.05); }
+          80%  { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(-6px); }
+        }
+        @keyframes shimmer-bg {
+          0%,100% { opacity: 0; }
+          50%      { opacity: 1; }
+        }
+        .tree-growing { animation: tree-pop 0.9s cubic-bezier(0.36,0.07,0.19,0.97) forwards; }
+        .img-fade-out { opacity: 0; transition: opacity 0.35s ease; }
+        .img-fade-in  { opacity: 1; transition: opacity 0.35s ease 0.35s; }
+        .stage-banner { animation: stage-badge 3s ease forwards; }
+        .growth-fill  { background: linear-gradient(90deg, #34d399, #10b981); transition: width 1.2s cubic-bezier(0.25,0.8,0.25,1); }
         .sticky {
           background: linear-gradient(160deg, #fffde0 0%, #fff9b0 100%);
           border-radius: 3px 3px 28px 4px / 3px 3px 12px 18px;
           box-shadow: 3px 3px 12px rgba(0,0,0,0.25), 0 18px 30px rgba(0,0,0,0.15);
-          transform: rotate(-1deg);
-          transition: transform 0.3s ease;
-          position: relative;
+          transform: rotate(-1deg); transition: transform 0.3s ease; position: relative;
         }
         .sticky:hover { transform: rotate(0deg) scale(1.01); }
         .sticky::after {
-          content: '';
-          position: absolute;
-          bottom: -4px; left: 8px;
-          width: 90%;
-          height: 12px;
-          background: rgba(0,0,0,0.12);
-          box-shadow: 0 6px 10px rgba(0,0,0,0.22);
-          transform: rotate(-1.5deg) skew(-4deg);
-          z-index: -1;
+          content:''; position:absolute; bottom:-4px; left:8px; width:90%; height:12px;
+          background:rgba(0,0,0,0.12); box-shadow:0 6px 10px rgba(0,0,0,0.22);
+          transform:rotate(-1.5deg) skew(-4deg); z-index:-1;
         }
         .task-line { border-bottom: 1.5px dashed rgba(34,85,34,0.15); }
-        .growth-bar-fill {
-          background: linear-gradient(90deg, #34d399, #10b981);
-          transition: width 1.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
       `}</style>
 
-      {/* Floating back button — no navbar */}
+      {/* Floating Back */}
       <button
         onClick={onExit}
         className="absolute top-5 left-5 z-20 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10 text-white/60 hover:text-white hover:bg-black/50 transition-all duration-200 group text-sm font-medium"
@@ -184,92 +286,91 @@ const GrowingTreeGame = ({ onExit }) => {
       </button>
 
       {/* Main layout */}
-      <main className="relative z-10 flex-1 flex flex-col md:flex-row items-center justify-center gap-8 px-6 py-8 max-w-6xl mx-auto w-full">
+      <main className="relative z-10 flex-1 flex flex-col md:flex-row items-center justify-center gap-8 px-6 py-10 max-w-6xl mx-auto w-full">
 
-        {/* LEFT: Tree */}
+        {/* ── LEFT: Tree ── */}
         <section className="flex flex-col items-center justify-center gap-3 md:w-5/12">
-          {/* Tree image — no card, just floats on the background */}
-          <div className="relative group">
+
+          {/* Stage-up banner */}
+          {stageUp && (
+            <div className="stage-banner px-5 py-2 rounded-full bg-emerald-400/20 backdrop-blur border border-emerald-400/40 text-emerald-300 text-xs font-bold tracking-widest uppercase flex items-center gap-2">
+              <Leaf size={12} className="animate-bounce" />
+              Your tree grew! → {stage.label}
+            </div>
+          )}
+
+          {/* Tree image with glow ring during growth */}
+          <div className="relative flex items-center justify-center">
+            {growing && (
+              <div className="absolute inset-0 rounded-full bg-emerald-400/10 animate-ping scale-110 pointer-events-none" />
+            )}
+
+            <GrowthParticles active={showParticles} />
+
             <img
-              src={stage.img}
+              src={displayedImg}
               alt={stage.label}
-              className="w-72 h-72 md:w-80 md:h-80 object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] transition-all duration-1000 group-hover:scale-105"
+              className={`w-72 h-72 md:w-80 md:h-80 object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] ${imgFading ? "img-fade-out" : "img-fade-in"} ${growing ? "tree-growing" : ""}`}
             />
-            {/* Soft ground glow */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-40 h-6 bg-emerald-500/20 blur-2xl rounded-full" />
+
+            {/* Ground glow */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-44 h-6 bg-emerald-500/25 blur-2xl rounded-full pointer-events-none" />
           </div>
 
-          {/* Stage label */}
-          <div className="text-center">
+          {/* Stage info */}
+          <div className="text-center space-y-1">
             <p className="text-emerald-300 font-bold tracking-widest uppercase text-xs">{stage.label}</p>
-            <p className="text-white/50 text-xs mt-0.5 italic">Growth: {treeState.tree_growth || 0}%</p>
+            <p className="text-white/40 text-[11px] italic">{stage.desc}</p>
           </div>
 
           {/* Growth bar */}
           <div className="w-56 bg-white/10 backdrop-blur-sm rounded-full h-2.5 overflow-hidden border border-white/10">
-            <div
-              className="growth-bar-fill h-full rounded-full"
-              style={{ width: `${treeState.tree_growth || 0}%` }}
-            />
+            <div className="growth-fill h-full rounded-full" style={{ width: `${treeState.tree_growth || 0}%` }} />
           </div>
+          <p className="text-white/40 text-[11px]">{treeState.tree_growth || 0}% grown</p>
 
-          {/* Tagline */}
-          <p className="text-center text-white/40 text-[11px] italic max-w-xs mt-1 leading-relaxed">
+          <p className="text-center text-white/30 text-[10px] italic max-w-xs leading-relaxed">
             "Every small step is a leaf. If today is hard, your tree just waits."
           </p>
         </section>
 
-        {/* RIGHT: Interaction */}
+        {/* ── RIGHT: Interaction ── */}
         <section className="flex flex-col gap-5 md:w-7/12 w-full">
 
-          {/* SAFETY BLOCK */}
-          {isSafetyTriggered ? (
+          {treeState.needs_human_support ? (
             <div className="bg-black/50 backdrop-blur-md rounded-2xl p-6 border border-red-500/30 text-white space-y-4">
               <div className="flex items-center gap-2 text-red-400">
                 <AlertCircle size={20} />
                 <span className="text-xs font-bold uppercase tracking-widest">You deserve real support</span>
               </div>
               <p className="text-gray-200 text-sm leading-relaxed">{treeState.support_message}</p>
-              <button
-                onClick={handleResetTasks}
-                className="mt-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition text-sm"
-              >
+              <button onClick={handleResetTasks} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition text-sm">
                 Share something else
               </button>
             </div>
+
           ) : hasTasks ? (
             <div className="space-y-4">
-              {/* Acknowledgment — minimal text, no card */}
               {treeState.acknowledgment && (
                 <p className="text-white/80 italic text-sm font-medium leading-relaxed drop-shadow px-1">
-                  <span className="text-emerald-300 font-bold not-italic">✦</span>{" "}
-                  "{treeState.acknowledgment}"
+                  <span className="text-emerald-300 font-bold not-italic">✦</span> "{treeState.acknowledgment}"
                 </p>
               )}
 
-              {/* STICKY NOTE */}
-              <div className="sticky font-hand p-7 pt-10 relative">
-                {/* Red Pushpin SVG */}
-                <svg
-                  className="absolute -top-6 left-1/2 -translate-x-1/2 drop-shadow-lg z-20"
-                  width="44" height="44" viewBox="0 0 100 100" fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
+              {/* Sticky note */}
+              <div className="sticky font-hand p-7 pt-10 relative" style={{ fontFamily: "'Playpen Sans', 'Caveat', cursive" }}>
+                <svg className="absolute -top-6 left-1/2 -translate-x-1/2 drop-shadow-lg z-20" width="44" height="44" viewBox="0 0 100 100" fill="none">
                   <path d="M47 50 L39 83 L43 84 L51 51 Z" fill="#9ca3af"/>
-                  <path d="M49 48 L41 83" stroke="#4b5563" strokeWidth="2.5" strokeLinecap="round"/>
                   <ellipse cx="50" cy="33" rx="14" ry="14" fill="#ef4444"/>
-                  <path d="M38 33 C38 20 62 20 62 33 C62 46 38 46 38 33 Z" fill="#ef4444"/>
                   <ellipse cx="50" cy="23" rx="10" ry="5.5" fill="#dc2626"/>
                   <ellipse cx="48" cy="21" rx="3.5" ry="1.8" fill="#fff" opacity="0.55"/>
                   <ellipse cx="50" cy="44" rx="12" ry="4.5" fill="#b91c1c"/>
                 </svg>
-
-                {/* Left margin line */}
                 <div className="absolute top-0 bottom-0 left-5 w-[2px] bg-red-400/25" />
 
                 <div className="pl-3 space-y-3">
-                  <h3 className="text-emerald-900 font-bold uppercase tracking-wide text-base border-b border-emerald-900/10 pb-2 mb-3 flex items-center gap-1.5" style={{fontFamily: "'Outfit', sans-serif"}}>
-                    <Leaf size={14}/> Today's Tasks
+                  <h3 className="text-emerald-900 font-bold uppercase tracking-wide text-base border-b border-emerald-900/10 pb-2 mb-3 flex items-center gap-1.5" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                    <Leaf size={14} /> Today's Tasks
                   </h3>
 
                   {treeState.tasks.map((task) => {
@@ -278,28 +379,15 @@ const GrowingTreeGame = ({ onExit }) => {
                     const isDone = task.completed;
 
                     return (
-                      <div
-                        key={task.id}
-                        className={`task-line pb-2.5 flex items-start justify-between gap-3 transition-all duration-300 ${
-                          isDone ? "opacity-40" : isCurrent ? "" : "opacity-35"
-                        }`}
-                      >
+                      <div key={task.id} className={`task-line pb-2.5 flex items-start justify-between gap-3 transition-all duration-500 ${isDone ? "opacity-35" : isCurrent ? "" : "opacity-35"}`}>
                         <div className="flex-1">
                           <div className="flex items-center gap-1.5 mb-1">
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                              task.size === 3 ? "bg-purple-200 text-purple-900"
-                              : task.size === 2 ? "bg-sky-200 text-sky-900"
-                              : "bg-emerald-200 text-emerald-900"
-                            }`} style={{fontFamily: "'Outfit', sans-serif"}}>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${task.size === 3 ? "bg-purple-200 text-purple-900" : task.size === 2 ? "bg-sky-200 text-sky-900" : "bg-emerald-200 text-emerald-900"}`} style={{ fontFamily: "'Outfit', sans-serif" }}>
                               {task.size === 3 ? "big step" : task.size === 2 ? "medium" : "tiny"}
                             </span>
-                            {isDone && (
-                              <span className="text-[10px] text-emerald-800 font-bold" style={{fontFamily: "'Outfit', sans-serif"}}>✓ done</span>
-                            )}
+                            {isDone && <span className="text-[10px] text-emerald-800 font-bold" style={{ fontFamily: "'Outfit', sans-serif" }}>✓ done</span>}
                           </div>
-                          <p className={`text-lg md:text-xl font-bold leading-tight text-stone-800 ${isDone ? "line-through text-stone-400" : ""}`}>
-                            {task.text}
-                          </p>
+                          <p className={`text-lg md:text-xl font-bold leading-tight text-stone-800 ${isDone ? "line-through text-stone-400" : ""}`}>{task.text}</p>
                         </div>
 
                         {isCurrent && !isDone && (
@@ -307,12 +395,11 @@ const GrowingTreeGame = ({ onExit }) => {
                             onClick={() => handleCompleteTask(task.id)}
                             disabled={completingTaskId === task.id}
                             className="shrink-0 px-3.5 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition hover:scale-105"
-                            style={{fontFamily: "'Outfit', sans-serif"}}
+                            style={{ fontFamily: "'Outfit', sans-serif" }}
                           >
                             {completingTaskId === task.id
-                              ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                              : "✓ Done"
-                            }
+                              ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              : "✓ Done"}
                           </button>
                         )}
                       </div>
@@ -325,15 +412,15 @@ const GrowingTreeGame = ({ onExit }) => {
                 <button
                   onClick={handleResetTasks}
                   className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] shadow-xl"
-                  style={{fontFamily: "'Outfit', sans-serif"}}
+                  style={{ fontFamily: "'Outfit', sans-serif" }}
                 >
-                  <RefreshCw size={16} />
-                  Share how you're feeling now
+                  <RefreshCw size={16} /> Share how you're feeling now
                 </button>
               )}
             </div>
+
           ) : (
-            /* INPUT FORM */
+            /* Input form */
             <div className="space-y-4">
               <div className="text-white">
                 <h2 className="font-extrabold text-3xl mb-2 leading-tight">Grow with Small Steps</h2>
@@ -342,15 +429,9 @@ const GrowingTreeGame = ({ onExit }) => {
                   No streaks. No pressure. Just you and your growing tree.
                 </p>
               </div>
-
-              <form
-                onSubmit={handleSubmitStatement}
-                className="flex flex-col gap-4"
-              >
+              <form onSubmit={handleSubmitStatement} className="flex flex-col gap-4">
                 <div>
-                  <label className="text-emerald-300 text-[10px] font-bold tracking-widest uppercase block mb-2">
-                    What's going on today?
-                  </label>
+                  <label className="text-emerald-300 text-[10px] font-bold tracking-widest uppercase block mb-2">What's going on today?</label>
                   <textarea
                     value={statementInput}
                     onChange={e => setStatementInput(e.target.value)}
@@ -359,16 +440,14 @@ const GrowingTreeGame = ({ onExit }) => {
                     required
                   />
                 </div>
-
                 <button
                   type="submit"
                   disabled={submitting || !statementInput.trim()}
                   className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-extrabold rounded-2xl shadow-xl transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting
-                    ? <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"/>
-                    : <><Send size={16}/> Generate Sized Tasks</>
-                  }
+                    ? <div className="w-5 h-5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                    : <><Send size={16} /> Generate Sized Tasks</>}
                 </button>
               </form>
             </div>
