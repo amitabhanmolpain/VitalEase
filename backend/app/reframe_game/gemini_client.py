@@ -131,6 +131,7 @@ def generate_battle_scenario(level: int) -> dict:
     - Level 3-4: Medium (Anxiety Ghost or Hopelessness Troll)
     - Level 5+: Hard (Hopelessness Troll or Doomsday Dragon)
     """
+    import random
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return get_fallback_scenario(level)
@@ -147,6 +148,15 @@ def generate_battle_scenario(level: int) -> dict:
             difficulty = "hard"
             allowed_monsters = ["hopelessness-troll", "doomsday-dragon"]
 
+        chosen_monster = random.choice(allowed_monsters)
+        topics = [
+            "academic failure", "social rejection", "public speaking anxiety", 
+            "job/interview stress", "loneliness", "imposter syndrome", 
+            "relationship conflict", "health worry", "time management pressure",
+            "making a mistake in front of peers", "financial insecurity"
+        ]
+        chosen_topic = random.choice(topics)
+
         client = genai.Client(api_key=api_key)
 
         prompt = f"""
@@ -155,16 +165,17 @@ The player must defeat a "Thought Monster" representing a cognitive distortion.
 
 Generate a scenario with the following specifications:
 - Difficulty: {difficulty}
-- Allowed Monsters: {allowed_monsters} (Choose one from the list that fits the scenario theme)
+- Selected Monster: {chosen_monster}
+- Chosen Focus Topic: {chosen_topic}
 
 The scenario MUST contain:
-1. A realistic, short, relatable situation.
-2. A negative thought expressing a cognitive distortion.
+1. A realistic, short, relatable situation specifically about the topic '{chosen_topic}'.
+2. A negative thought expressing a cognitive distortion that fits the monster '{chosen_monster}'.
 3. Exactly 4 options:
-   - Exactly ONE option must be a constructive CBT cognitive reframe (marked as isCorrect: true, with encouraging feedback).
+   - Exactly ONE option must be a constructive, logical CBT cognitive reframe (marked as isCorrect: true, with encouraging feedback).
    - The other THREE options must be unconstructive/distortion-reinforcing choices (marked as isCorrect: false, with supportive corrective feedback explaining the cognitive distortion trap).
 
-Ensure your response conforms strictly to the requested schema.
+Ensure your response conforms strictly to the requested schema. Make the situation and options highly specific to the topic.
 """
 
         response = client.models.generate_content(
@@ -173,7 +184,7 @@ Ensure your response conforms strictly to the requested schema.
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=BattleScenario,
-                temperature=0.8,
+                temperature=0.9,
             )
         )
 

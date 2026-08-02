@@ -31,12 +31,21 @@ def recalculate_win_rate(stats):
     stats.global_stats['win_rate'] = round((v / total) * 100, 2) if total > 0 else 0.0
     return stats
 
-def update_game_result(user_id, game, is_win, xp_earned):
+def update_game_result(user_id, game, is_win, xp_earned, badges=None):
     stats = get_or_create_stats(user_id)
     # Debug log for game key
-    print(f"[PlayerStats] update_game_result: user_id={user_id}, game={game}, is_win={is_win}, xp_earned={xp_earned}")
+    print(f"[PlayerStats] update_game_result: user_id={user_id}, game={game}, is_win={is_win}, xp_earned={xp_earned}, badges={badges}")
     # Normalize game key to lowercase
     game_key = str(game).strip().lower()
+    
+    # Store unique string badges from frontend
+    if badges:
+        existing_badges = set(stats.badges or [])
+        for b in badges:
+            if isinstance(b, str) and b not in existing_badges:
+                stats.badges.append(b)
+                existing_badges.add(b)
+
     # Global stats
     if is_win:
         stats.global_stats['victories'] = stats.global_stats.get('victories', 0) + 1
@@ -87,14 +96,7 @@ def add_achievement(stats, code, title, game=None):
         })
         stats.save()
 
-def add_badge(stats, code, level):
-    if not any(b['code'] == code and b['level'] == level for b in stats.badges):
-        stats.badges.append({
-            'code': code,
-            'level': level,
-            'earned_at': datetime.utcnow()
-        })
-        stats.save()
+
 
 def check_and_unlock_achievements(stats):
     # Global achievements
@@ -113,8 +115,9 @@ def check_and_unlock_achievements(stats):
     for game_name, game_stats in stats.games.items():
         game_display_name = {
             'thoughtbattle': 'Thought Battle',
-            'lifequest': 'Life Quest',
-            'emotionquest': 'Emotion Quest'
+            'reframe': 'Sanctuary Suites',
+            'growingtree': 'The Growing Tree',
+            'growing-tree': 'The Growing Tree'
         }.get(game_name, game_name.title())
 
         # First win in specific game

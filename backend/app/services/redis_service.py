@@ -62,6 +62,15 @@ class SafeRedis:
         except redis.ConnectionError:
             return True
 
+    def flushall(self):
+        self.memory_db.clear()
+        if self.is_connected:
+            try:
+                self.client.flushall()
+            except Exception:
+                pass
+        return True
+
 # Initialize base client and wrap it
 _raw_client = redis.from_url(REDIS_URL, decode_responses=True)
 redis_client = SafeRedis(_raw_client)

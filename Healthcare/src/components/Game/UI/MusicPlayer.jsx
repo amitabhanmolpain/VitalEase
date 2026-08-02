@@ -7,7 +7,7 @@ const MusicPlayer = ({ onClose }) => {
   const audioRef = useRef(null);
 
   useEffect(() => {
-    const audio = new Audio("https://assets.mixkit.co/music/preview/mixkit-game-level-music-689.mp3");
+    const audio = new Audio("https://ia800704.us.archive.org/15/items/retro-game-music-pack/Retro%20Game%20Music%20Pack/Loop%2001.mp3");
     audio.loop = true;
     audio.volume = 0.4;
     

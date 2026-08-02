@@ -15,102 +15,89 @@ import HopelessnessTroll from './Enemies/HopelessnessTroll';
 
 const renderBadgeIcon = (name) => {
   let badgeTitle = name;
+  let emoji = "🎖️";
   let colors = {
-    bg: "from-yellow-400 to-amber-500",
-    border: "border-yellow-300",
-    glow: "shadow-yellow-400/30"
+    bg: "from-slate-700 to-slate-900",
+    border: "border-slate-500",
+    glow: "shadow-slate-500/30"
   };
-  let iconSvg = null;
 
   if (name.includes("Level")) {
-    const lvlNum = name.replace(/\D/g, "");
-    colors = {
-      bg: "from-blue-500 to-indigo-600",
-      border: "border-blue-400",
-      glow: "shadow-blue-500/30"
-    };
-    iconSvg = (
-      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
-        <polygon points="50,15 80,30 80,65 50,85 20,65 20,30" fill="url(#blueGrad)" stroke="#93c5fd" strokeWidth="3" />
-        <text x="50" y="58" fill="#ffffff" fontSize="28" fontWeight="bold" textAnchor="middle">{lvlNum}</text>
-      </svg>
-    );
+    const lvlNum = parseInt(name.replace(/\D/g, "")) || 1;
+    if (lvlNum === 1) {
+      emoji = "🛡️";
+      colors = {
+        bg: "from-blue-500 via-indigo-600 to-indigo-850",
+        border: "border-blue-400",
+        glow: "shadow-blue-500/40"
+      };
+    } else if (lvlNum === 2) {
+      emoji = "⚔️";
+      colors = {
+        bg: "from-cyan-500 via-teal-600 to-teal-850",
+        border: "border-cyan-400",
+        glow: "shadow-cyan-500/40"
+      };
+    } else if (lvlNum === 3) {
+      emoji = "👑";
+      colors = {
+        bg: "from-yellow-400 via-amber-500 to-amber-700",
+        border: "border-yellow-300",
+        glow: "shadow-yellow-500/40"
+      };
+    } else if (lvlNum === 4) {
+      emoji = "🔮";
+      colors = {
+        bg: "from-purple-500 via-pink-600 to-pink-850",
+        border: "border-purple-400",
+        glow: "shadow-purple-500/40"
+      };
+    } else {
+      emoji = "⚡";
+      colors = {
+        bg: "from-red-500 via-orange-500 to-yellow-600",
+        border: "border-orange-400",
+        glow: "shadow-orange-500/40"
+      };
+    }
   } else if (name === "Mind Warrior") {
+    emoji = "🥋";
     colors = {
-      bg: "from-purple-500 to-fuchsia-600",
-      border: "border-purple-400",
-      glow: "shadow-purple-500/30"
+      bg: "from-emerald-500 to-teal-600",
+      border: "border-emerald-400",
+      glow: "shadow-emerald-500/30"
     };
-    iconSvg = (
-      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
-        <polygon points="50,15 80,30 80,65 50,85 20,65 20,30" fill="url(#purpGrad)" stroke="#e879f9" strokeWidth="3" />
-        <path d="M 50 30 L 50 70 M 42 62 L 58 62" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
-      </svg>
-    );
   } else if (name === "Thought Champion") {
+    emoji = "🏆";
     colors = {
       bg: "from-yellow-400 to-amber-500",
       border: "border-yellow-300",
       glow: "shadow-yellow-400/30"
     };
-    iconSvg = (
-      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
-        <path d="M 25 70 L 75 70 L 68 85 L 32 85 Z" fill="#d97706" />
-        <path d="M 20 40 L 35 55 L 50 30 L 65 55 L 80 40 L 75 70 L 25 70 Z" fill="url(#goldGrad)" stroke="#fef08a" strokeWidth="3" />
-        <circle cx="50" cy="55" r="6" fill="#ef4444" />
-      </svg>
-    );
   } else if (name === "10 Victories") {
+    emoji = "🥇";
     colors = {
-      bg: "from-green-500 to-emerald-600",
-      border: "border-green-400",
-      glow: "shadow-green-500/30"
+      bg: "from-yellow-500 to-yellow-600",
+      border: "border-yellow-300",
+      glow: "shadow-yellow-500/30"
     };
-    iconSvg = (
-      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
-        <circle cx="50" cy="50" r="30" fill="url(#emeraldGrad)" stroke="#6ee7b7" strokeWidth="3" />
-        <text x="50" y="58" fill="#ffffff" fontSize="22" fontWeight="bold" textAnchor="middle">10V</text>
-      </svg>
-    );
-  } else {
-    // Battle Master or other fallback
+  } else if (name === "Battle Master") {
+    emoji = "🎖️";
     colors = {
       bg: "from-rose-500 to-red-600",
       border: "border-rose-400",
       glow: "shadow-rose-500/30"
     };
-    iconSvg = (
-      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
-        <circle cx="50" cy="50" r="30" fill="url(#roseGrad)" stroke="#fda4af" strokeWidth="3" />
-        <path d="M 35 35 L 65 65 M 65 35 L 35 65" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
-      </svg>
-    );
   }
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r ${colors.bg} border-2 ${colors.border} shadow-lg ${colors.glow} text-white`}>
-      <svg width="0" height="0" className="absolute">
-        <defs>
-          <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#60a5fa" />
-            <stop offset="100%" stopColor="#1d4ed8" />
-          </linearGradient>
-          <linearGradient id="purpGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#c084fc" />
-            <stop offset="100%" stopColor="#701a75" />
-          </linearGradient>
-          <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#34d399" />
-            <stop offset="100%" stopColor="#047857" />
-          </linearGradient>
-          <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#fb7185" />
-            <stop offset="100%" stopColor="#be123c" />
-          </linearGradient>
-        </defs>
-      </svg>
-      {iconSvg}
-      <span className="font-bold text-sm tracking-wide">{badgeTitle}</span>
+    <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-lg ${colors.glow} text-white hover:bg-white/10 transition-all cursor-pointer`}>
+      <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colors.bg} border-2 ${colors.border} flex items-center justify-center relative shadow-inner overflow-hidden flex-shrink-0`}>
+        {/* Shiny Gloss Highlight */}
+        <div className="absolute top-0 left-0 right-0 h-1/2 bg-white/20 rounded-t-full pointer-events-none" />
+        <span className="text-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">{emoji}</span>
+      </div>
+      <span className="font-extrabold text-sm tracking-wide whitespace-nowrap">{badgeTitle}</span>
     </div>
   );
 };
@@ -145,6 +132,30 @@ const BattleArena = ({ onExit }) => {
   const [showMusicPlayer, setShowMusicPlayer] = useState(false);
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [unlockedBadge, setUnlockedBadge] = useState(null);
+
+  const playLevelUpSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const now = ctx.currentTime;
+      const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.25, now + idx * 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.45);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.08);
+        osc.stop(now + idx * 0.08 + 0.5);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const scenario = scenarios[currentScenario];
 
@@ -280,9 +291,31 @@ const BattleArena = ({ onExit }) => {
       if (option.isCorrect) {
         setEnemyDefeated(true);
         playSound('victory');
+        
+        const oldLevel = level;
         addXP(20);
         incrementStreak();
         incrementVictories();
+
+        // Level up or Streak badge check
+        const newXP = xp + 20;
+        const newLevel = Math.floor(newXP / 100) + 1;
+        if (newLevel > oldLevel) {
+          setTimeout(() => {
+            playLevelUpSound();
+            setUnlockedBadge(`Level ${newLevel} Warrior`);
+          }, 1200);
+        } else if (streak + 1 === 5 && !badges.includes("Mind Warrior")) {
+          setTimeout(() => {
+            playLevelUpSound();
+            setUnlockedBadge("Mind Warrior");
+          }, 1200);
+        } else if (streak + 1 === 10 && !badges.includes("Thought Champion")) {
+          setTimeout(() => {
+            playLevelUpSound();
+            setUnlockedBadge("Thought Champion");
+          }, 1200);
+        }
         
         const correctOption = scenario.options.find(opt => opt.isCorrect);
         setResult({
@@ -297,7 +330,8 @@ const BattleArena = ({ onExit }) => {
           await statsAPI.updateStats({
             game: 'thoughtbattle',
             win: true,
-            xp: 20
+            xp: 20,
+            badges: useGameStore.getState().badges
           });
         } catch (error) {
           console.error('Failed to update stats:', error);
@@ -320,7 +354,8 @@ const BattleArena = ({ onExit }) => {
           await statsAPI.updateStats({
             game: 'thoughtbattle',
             win: false,
-            xp: 5
+            xp: 5,
+            badges: useGameStore.getState().badges
           });
         } catch (error) {
           console.error('Failed to update stats:', error);
@@ -648,6 +683,59 @@ const BattleArena = ({ onExit }) => {
       {/* Music Player Modal */}
       <AnimatePresence>
         {showMusicPlayer && <MusicPlayer onClose={() => setShowMusicPlayer(false)} />}
+      </AnimatePresence>
+
+      {/* Badge Unlock Popup */}
+      <AnimatePresence>
+        {unlockedBadge && (
+          <motion.div
+            className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[150] p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border-4 border-yellow-400 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden"
+              initial={{ scale: 0.8, rotate: -5 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0.8, rotate: 5 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/10 to-transparent pointer-events-none" />
+              
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 10, ease: "linear" }}
+                className="w-32 h-32 mx-auto mb-6 opacity-20 absolute top-10 left-1/2 -translate-x-1/2 pointer-events-none"
+              >
+                <svg viewBox="0 0 100 100" className="w-full h-full fill-yellow-400">
+                  <path d="M50 50 L40 0 L60 0 Z" />
+                  <path d="M50 50 L100 40 L100 60 Z" />
+                  <path d="M50 50 L40 100 L60 100 Z" />
+                  <path d="M50 50 L0 40 L0 60 Z" />
+                </svg>
+              </motion.div>
+
+              <div className="relative z-10 flex flex-col items-center justify-center">
+                <span className="text-5xl mb-4">🏆</span>
+                <h3 className="text-3xl font-black text-yellow-400 mb-2 tracking-wide">UNLOCKED!</h3>
+                <p className="text-white/80 text-sm mb-6">You earned a new Badge of Honor!</p>
+                
+                <div className="flex justify-center mb-6">
+                  {renderBadgeIcon(unlockedBadge)}
+                </div>
+
+                <motion.button
+                  onClick={() => setUnlockedBadge(null)}
+                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 rounded-xl text-slate-950 font-black text-lg shadow-lg"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  AWESOME!
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

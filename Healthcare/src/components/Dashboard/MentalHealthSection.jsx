@@ -945,6 +945,7 @@ const LeaderboardSection = () => {
   const [games, setGames] = useState({});
   const [loading, setLoading] = useState(true);
   const [achievements, setAchievements] = useState([]);
+  const [unlockedBadges, setUnlockedBadges] = useState([]);
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() };
@@ -957,11 +958,13 @@ const LeaderboardSection = () => {
         setStats(data?.global_stats || {});
         setGames(data?.games || {});
         setAchievements(data?.achievements || []);
+        setUnlockedBadges(data?.badges || []);
       } catch (e) {
         console.error("Stats API error:", e);
         setStats({});
         setGames({});
         setAchievements([]);
+        setUnlockedBadges([]);
       } finally {
         setLoading(false);
       }
@@ -1194,69 +1197,114 @@ const LeaderboardSection = () => {
       </div>
 
       {/* Game Levels Scoreboard */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 shadow-lg">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-emerald-500/5 pointer-events-none" />
+        <div className="flex items-center gap-3 mb-6 relative z-10">
           <Target size={32} className="text-green-400" />
           <h3 className="font-poppins font-semibold text-2xl text-white">Game Levels Scoreboard</h3>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
           {/* Thought Battle */}
-          <div className="bg-gradient-to-br from-red-600/20 to-orange-600/20 border border-red-500/30 rounded-xl p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-400 to-orange-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <span className="text-3xl">⚔️</span>
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
+            <div>
+              <div className="relative w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10">
+                <img src="/clarity strike image.png" alt="Thought Battle" className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 w-10 h-10 rounded-full bg-gradient-to-br from-red-500 via-orange-500 to-amber-600 border border-white/20 flex items-center justify-center shadow-lg">
+                  <span className="text-xl">⚔️</span>
+                </div>
+              </div>
+              <h4 className="text-white font-extrabold text-xl mb-1 text-center">Thought Battle</h4>
+              <p className="text-purple-300 text-xs font-semibold mb-4 text-center uppercase tracking-wider">Clarity Strike</p>
             </div>
-            <h4 className="text-white font-bold text-xl mb-2">Thought Battle</h4>
-            <div className="space-y-2">
-              <p className="text-gray-300 text-sm">Level</p>
-              <p className="text-white font-bold text-4xl">{games.thoughtbattle?.level || 1}</p>
-              <p className="text-gray-400 text-sm">XP: {games.thoughtbattle?.xp || 0}</p>
-              <p className="text-gray-400 text-sm">Wins: {games.thoughtbattle?.victories || 0}</p>
+            <div className="bg-black/30 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">LEVEL</p>
+                <p className="text-white font-black text-xl">{games.thoughtbattle?.level || 1}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">XP</p>
+                <p className="text-yellow-400 font-black text-xl">{games.thoughtbattle?.xp || 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">WINS</p>
+                <p className="text-green-400 font-black text-xl">{games.thoughtbattle?.victories || 0}</p>
+              </div>
             </div>
           </div>
 
-          {/* Life Quest */}
-          <div className="bg-gradient-to-br from-green-600/20 to-emerald-600/20 border border-green-500/30 rounded-xl p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <span className="text-3xl">🌟</span>
+          {/* Sanctuary Suites */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
+            <div>
+              <div className="relative w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10">
+                <img src="/santuary suites image.png" alt="Sanctuary Suites" className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 via-purple-600 to-teal-500 border border-white/20 flex items-center justify-center shadow-lg">
+                  <span className="text-xl">🏨</span>
+                </div>
+              </div>
+              <h4 className="text-white font-extrabold text-xl mb-1 text-center">Sanctuary Suites</h4>
+              <p className="text-teal-300 text-xs font-semibold mb-4 text-center uppercase tracking-wider">Reframing Rooms</p>
             </div>
-            <h4 className="text-white font-bold text-xl mb-2">Life Quest</h4>
-            <div className="space-y-2">
-              <p className="text-gray-300 text-sm">Level</p>
-              <p className="text-white font-bold text-4xl">{games.lifequest?.level || 1}</p>
-              <p className="text-gray-400 text-sm">XP: {games.lifequest?.xp || 0}</p>
-              <p className="text-gray-400 text-sm">Wins: {games.lifequest?.victories || 0}</p>
+            <div className="bg-black/30 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">LEVEL</p>
+                <p className="text-white font-black text-xl">{games.reframe?.level || 1}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">XP</p>
+                <p className="text-yellow-400 font-black text-xl">{games.reframe?.xp || 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">WINS</p>
+                <p className="text-green-400 font-black text-xl">{games.reframe?.victories || 0}</p>
+              </div>
             </div>
           </div>
 
-          {/* Emotion Quest */}
-          <div className="bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl p-6 text-center">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <span className="text-3xl">🎭</span>
+          {/* The Growing Tree */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
+            <div>
+              <div className="relative w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10">
+                <img src="/growing tree game.png" alt="The Growing Tree" className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 via-green-500 to-emerald-700 border border-white/20 flex items-center justify-center shadow-lg">
+                  <span className="text-xl">🌳</span>
+                </div>
+              </div>
+              <h4 className="text-white font-extrabold text-xl mb-1 text-center">The Growing Tree</h4>
+              <p className="text-emerald-300 text-xs font-semibold mb-4 text-center uppercase tracking-wider">Mindful Growth</p>
             </div>
-            <h4 className="text-white font-bold text-xl mb-2">Emotion Quest</h4>
-            <div className="space-y-2">
-              <p className="text-gray-300 text-sm">Level</p>
-              <p className="text-white font-bold text-4xl">{games.emotionquest?.level || 1}</p>
-              <p className="text-gray-400 text-sm">XP: {games.emotionquest?.xp || 0}</p>
-              <p className="text-gray-400 text-sm">Wins: {games.emotionquest?.victories || 0}</p>
+            <div className="bg-black/30 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">LEVEL</p>
+                <p className="text-white font-black text-xl">{(games['growing-tree'] || games.growingtree)?.level || 1}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">XP</p>
+                <p className="text-yellow-400 font-black text-xl">{(games['growing-tree'] || games.growingtree)?.xp || 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">WINS</p>
+                <p className="text-green-400 font-black text-xl">{(games['growing-tree'] || games.growingtree)?.victories || 0}</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Achievements Section in Leaderboard */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 shadow-lg">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-pink-500/5 pointer-events-none" />
+        <div className="flex items-center gap-3 mb-6 relative z-10">
           <Award size={32} className="text-purple-400" />
           <h3 className="font-poppins font-semibold text-2xl text-white">Achievements Unlocked</h3>
         </div>
 
-        {achievements.length > 0 ? (
-          <div className="space-y-6">
+        {achievements.filter(a => a.game === 'global' || a.game === 'thoughtbattle').length > 0 ? (
+          <div className="space-y-6 relative z-10">
             {/* Group achievements by game */}
             {(() => {
-              const gameGroups = achievements.reduce((groups, achievement) => {
+              const activeAchievements = achievements.filter(a => a.game === 'global' || a.game === 'thoughtbattle');
+              const gameGroups = activeAchievements.reduce((groups, achievement) => {
                 const game = achievement.game || 'global';
                 if (!groups[game]) groups[game] = [];
                 groups[game].push(achievement);
@@ -1265,149 +1313,7 @@ const LeaderboardSection = () => {
 
               const gameDisplayNames = {
                 'global': '🏆 Global Achievements',
-                'thoughtbattle': '⚔️ Thought Battle',
-                'lifequest': '🌟 Life Quest',
-                'emotionquest': '🎭 Emotion Quest'
-              };
-
-              return Object.entries(gameGroups).map(([gameKey, gameAchievements]) => {
-                // Unique badge icons and badge shapes for each game
-                const badgeIcons = {
-                  thoughtbattle: (
-                    <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                      {/* Target with arrow for Thought Battle */}
-                      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                        <circle cx="32" cy="32" r="30" fill="#FF6B6B" stroke="#fff" strokeWidth="4"/>
-                        <circle cx="32" cy="32" r="18" fill="#fff" stroke="#FFD93D" strokeWidth="3"/>
-                        <path d="M44 20L32 32" stroke="#6366F1" strokeWidth="3" strokeLinecap="round"/>
-                        <polygon points="44,20 40,22 42,24" fill="#6366F1"/>
-                        <text x="32" y="58" textAnchor="middle" fontSize="12" fill="#fff" fontWeight="bold">Thought Battle</text>
-                      </svg>
-                    </div>
-                  ),
-                  lifequest: (
-                    <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                      {/* Star badge for Life Quest (fixed SVG) */}
-                      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                        <polygon points="32,10 39,26 58,26 42,38 48,54 32,45 16,54 22,38 6,26 25,26" fill="#43E97B" stroke="#fff" strokeWidth="3"/>
-                        <circle cx="32" cy="34" r="10" fill="#fff" stroke="#38BDF8" strokeWidth="2"/>
-                        <text x="32" y="39" textAnchor="middle" fontSize="14" fill="#38BDF8" fontWeight="bold">LQ</text>
-                        <text x="32" y="60" textAnchor="middle" fontSize="12" fill="#fff" fontWeight="bold">Life Quest</text>
-                      </svg>
-                    </div>
-                  ),
-                  emotionquest: (
-                    <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                      {/* Mask badge for Emotion Quest */}
-                      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                        <ellipse cx="32" cy="32" rx="28" ry="24" fill="#7C3AED" stroke="#fff" strokeWidth="4"/>
-                        <ellipse cx="32" cy="32" rx="14" ry="10" fill="#fff" stroke="#F472B6" strokeWidth="2"/>
-                        <ellipse cx="26" cy="32" rx="2" ry="3" fill="#7C3AED"/>
-                        <ellipse cx="38" cy="32" rx="2" ry="3" fill="#7C3AED"/>
-                        <path d="M28 38 Q32 42 36 38" stroke="#F472B6" strokeWidth="2" fill="none"/>
-                        <text x="32" y="58" textAnchor="middle" fontSize="12" fill="#fff" fontWeight="bold">Emotion Quest</text>
-                      </svg>
-                    </div>
-                  ),
-                  global: (
-                    <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-                      {/* Trophy for global */}
-                      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                        <circle cx="32" cy="32" r="30" fill="#FBBF24" stroke="#fff" strokeWidth="4"/>
-                        <rect x="22" y="22" width="20" height="20" rx="4" fill="#fff" stroke="#6366F1" strokeWidth="2"/>
-                        <circle cx="32" cy="32" r="6" fill="#6366F1"/>
-                        <text x="32" y="58" textAnchor="middle" fontSize="12" fill="#fff" fontWeight="bold">Global</text>
-                      </svg>
-                    </div>
-                  )
-                };
-
-                const getGameStyles = (game) => {
-                  switch(game) {
-                    case 'thoughtbattle':
-                      return {
-                        bg: 'bg-gradient-to-br from-red-600/30 to-orange-600/30',
-                        border: 'border-red-500/50',
-                        icon: badgeIcons.thoughtbattle
-                      };
-                    case 'lifequest':
-                      return {
-                        bg: 'bg-gradient-to-br from-green-600/30 to-emerald-600/30',
-                        border: 'border-green-500/50',
-                        icon: badgeIcons.lifequest
-                      };
-                    case 'emotionquest':
-                      return {
-                        bg: 'bg-gradient-to-br from-blue-600/30 to-purple-600/30',
-                        border: 'border-blue-500/50',
-                        icon: badgeIcons.emotionquest
-                      };
-                    default: // global
-                      return {
-                        bg: 'bg-gradient-to-br from-purple-600/30 to-pink-600/30',
-                        border: 'border-purple-500/50',
-                        icon: badgeIcons.global
-                      };
-                  }
-                };
-
-                const styles = getGameStyles(gameKey);
-
-                return (
-                  <div key={gameKey} className="space-y-4">
-                    <h4 className="text-white font-semibold text-lg flex items-center gap-2">
-                      {gameDisplayNames[gameKey] || gameKey}
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {gameAchievements.map((achievement, idx) => (
-                        <div
-                          key={idx}
-                          className={`${styles.bg} border ${styles.border} rounded-xl p-4 text-center hover:scale-105 transition`}
-                        >
-                          {styles.icon}
-                          <p className="text-white font-semibold text-sm mt-2">{achievement.title}</p>
-                          <p className="text-gray-400 text-xs mt-1">
-                            {new Date(achievement.earned_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              });
-            })()}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <Trophy size={48} className="text-gray-500 mx-auto mb-3" />
-            <p className="text-gray-400">No achievements earned yet. Keep playing games to unlock them!</p>
-          </div>
-        )}
-      </div>
-
-{/* Achievements Section */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 shadow-lg">
-        <div className="flex items-center gap-3 mb-6">
-          <Award size={32} className="text-purple-400" />
-          <h3 className="font-poppins font-semibold text-2xl text-white">Achievements Unlocked</h3>
-        </div>
-
-        {achievements.length > 0 ? (
-          <div className="space-y-6">
-            {/* Group achievements by game */}
-            {(() => {
-              const gameGroups = achievements.reduce((groups, achievement) => {
-                const game = achievement.game || 'global';
-                if (!groups[game]) groups[game] = [];
-                groups[game].push(achievement);
-                return groups;
-              }, {});
-
-              const gameDisplayNames = {
-                'global': '🏆 Global Achievements',
-                'thoughtbattle': '⚔️ Thought Battle',
-                'lifequest': '🌟 Life Quest',
-                'emotionquest': '🎭 Emotion Quest'
+                'thoughtbattle': '⚔️ Thought Battle'
               };
 
               return Object.entries(gameGroups).map(([gameKey, gameAchievements]) => {
@@ -1415,58 +1321,74 @@ const LeaderboardSection = () => {
                   switch(game) {
                     case 'thoughtbattle':
                       return {
-                        bg: 'bg-gradient-to-br from-red-600/30 to-orange-600/30',
-                        border: 'border-red-500/50',
-                        iconBg: 'from-red-400 to-orange-500',
-                        icon: '⚔️'
-                      };
-                    case 'lifequest':
-                      return {
-                        bg: 'bg-gradient-to-br from-green-600/30 to-emerald-600/30',
-                        border: 'border-green-500/50',
-                        iconBg: 'from-green-400 to-emerald-500',
-                        icon: '🌟'
-                      };
-                    case 'emotionquest':
-                      return {
-                        bg: 'bg-gradient-to-br from-blue-600/30 to-purple-600/30',
-                        border: 'border-blue-500/50',
-                        iconBg: 'from-blue-400 to-purple-500',
-                        icon: '🎭'
+                        bg: 'bg-gradient-to-br from-red-950/40 via-slate-900/40 to-red-950/40',
+                        border: 'border-red-500/30 shadow-red-500/10'
                       };
                     default: // global
                       return {
-                        bg: 'bg-gradient-to-br from-purple-600/30 to-pink-600/30',
-                        border: 'border-purple-500/50',
-                        iconBg: 'from-yellow-400 to-orange-500',
-                        icon: '🏆'
+                        bg: 'bg-gradient-to-br from-purple-950/40 via-slate-900/40 to-purple-950/40',
+                        border: 'border-purple-500/30 shadow-purple-500/10'
                       };
                   }
+                };
+
+                const getAchievementEmoji = (ach) => {
+                  const title = (ach.title || '').toUpperCase();
+                  const code = (ach.code || '').toUpperCase();
+                  
+                  if (code === 'FIRST_WIN' || title.includes('FIRST VICTORY')) return '🛡️';
+                  if (code === 'STREAK_5' || title.includes('5-WIN STREAK')) return '🔥';
+                  if (code === 'LEVEL_5' || title.includes('LEVEL 5')) return '⚡';
+                  if (code === 'WIN_MASTER' || title.includes('10 VICTORIES')) return '🏆';
+                  if (code === 'LEVEL_MASTER' || title.includes('LEVEL 10')) return '👑';
+                  
+                  if (code.includes('FIRST_WIN') || title.includes('FIRST THOUGHT')) return '🛡️';
+                  if (code.includes('WIN_5') || title.includes('5 THOUGHT')) return '⚔️';
+                  if (code.includes('WIN_10') || title.includes('10 THOUGHT')) return '🥇';
+                  if (code.includes('STREAK_3') || title.includes('3-GAME THOUGHT')) return '🔥';
+                  if (code.includes('LEVEL_3') || title.includes('LEVEL 3')) return '👑';
+                  if (code.includes('LEVEL_5') || title.includes('LEVEL 5')) return '⚡';
+                  
+                  return '🎖️';
+                };
+
+                const getEmojiColors = (emoji) => {
+                  if (emoji === '🛡️') return 'from-blue-500 via-indigo-600 to-indigo-850 border-blue-400';
+                  if (emoji === '⚔️') return 'from-cyan-500 via-teal-600 to-teal-850 border-cyan-400';
+                  if (emoji === '👑') return 'from-yellow-400 via-amber-500 to-amber-700 border-yellow-300';
+                  if (emoji === '⚡') return 'from-red-500 via-orange-500 to-yellow-600 border-orange-400';
+                  if (emoji === '🔥') return 'from-orange-500 to-red-600 border-orange-400';
+                  if (emoji === '🏆' || emoji === '🥇') return 'from-yellow-400 to-amber-500 border-yellow-300';
+                  return 'from-slate-500 to-slate-700 border-slate-400';
                 };
 
                 const styles = getGameStyles(gameKey);
 
                 return (
                   <div key={gameKey} className="space-y-4">
-                    <h4 className="text-white font-semibold text-lg flex items-center gap-2">
-                      <span className="text-2xl">{styles.icon}</span>
+                    <h4 className="text-white font-extrabold text-lg flex items-center gap-2">
                       {gameDisplayNames[gameKey] || gameKey}
                     </h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {gameAchievements.map((achievement, idx) => (
-                        <div
-                          key={idx}
-                          className={`${styles.bg} border ${styles.border} rounded-xl p-4 text-center hover:scale-105 transition`}
-                        >
-                          <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${styles.iconBg} flex items-center justify-center mx-auto mb-3 shadow-lg`}>
-                            <Trophy size={32} className="text-white" />
+                      {gameAchievements.map((achievement, idx) => {
+                        const emoji = getAchievementEmoji(achievement);
+                        const iconBg = getEmojiColors(emoji);
+                        return (
+                          <div
+                            key={idx}
+                            className={`${styles.bg} border ${styles.border} rounded-2xl p-5 text-center hover:scale-[1.03] hover:bg-white/5 transition duration-300 shadow-xl`}
+                          >
+                            <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${iconBg} border-2 flex items-center justify-center mx-auto mb-3 shadow-lg relative overflow-hidden`}>
+                              <div className="absolute top-0 left-0 right-0 h-1/2 bg-white/20 rounded-t-full pointer-events-none" />
+                              <span className="text-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">{emoji}</span>
+                            </div>
+                            <p className="text-white font-bold text-sm tracking-wide">{achievement.title}</p>
+                            <p className="text-purple-300/60 font-semibold text-xs mt-1">
+                              {new Date(achievement.earned_at).toLocaleDateString()}
+                            </p>
                           </div>
-                          <p className="text-white font-semibold text-sm">{achievement.title}</p>
-                          <p className="text-gray-400 text-xs mt-1">
-                            {new Date(achievement.earned_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -1474,12 +1396,13 @@ const LeaderboardSection = () => {
             })()}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <Trophy size={48} className="text-gray-500 mx-auto mb-3" />
-            <p className="text-gray-400">No achievements earned yet. Keep playing games to unlock them!</p>
+          <div className="text-center py-12 relative z-10">
+            <span className="text-5xl mb-3 block">🏆</span>
+            <p className="text-gray-400 font-medium">No achievements earned yet. Keep playing games to unlock them!</p>
           </div>
         )}
       </div>
+
 
       {/* Motivational Message */}
       <div className="bg-gradient-to-r from-pink-600/20 to-purple-600/20 border border-pink-500/30 rounded-2xl p-6 text-center">

@@ -46,30 +46,10 @@ const SelfDoubtSlime = ({ isHit, isDefeated }) => {
         {/* Shadow Underneath Slime */}
         <ellipse cx="100" cy="175" rx="50" ry="10" fill="#022c22" opacity="0.4" />
 
-        {/* Main Fluid Body */}
-        <motion.path
-          d="M 100 40 
-             C 145 40, 165 70, 165 110 
-             C 165 140, 145 160, 100 160 
-             C 55 160, 35 140, 35 110 
-             C 35 70, 55 40, 100 40 Z"
+        {/* Main Fluid Body - Static Path to prevent morph errors */}
+        <path
+          d="M 100 40 C 145 40, 165 70, 165 110 C 165 140, 145 160, 100 160 C 55 160, 35 140, 35 110 C 35 70, 55 40, 100 40 Z"
           fill="url(#bodyGrad)"
-          animate={{
-            d: isHit 
-              ? [
-                  "M 100 45 C 135 45, 155 75, 155 115 C 155 135, 135 155, 100 155 C 65 155, 45 135, 45 115 C 45 75, 65 45, 100 45 Z"
-                ]
-              : [
-                  "M 100 40 C 145 40, 165 70, 165 110 C 165 140, 145 160, 100 160 C 55 160, 35 140, 35 110 C 35 70, 55 40, 100 40 Z",
-                  "M 100 45 C 148 45, 162 65, 162 105 C 162 142, 148 162, 100 162 C 52 162, 38 142, 38 105 C 38 65, 52 45, 100 45 Z",
-                  "M 100 40 C 145 40, 165 70, 165 110 C 165 140, 145 160, 100 160 C 55 160, 35 140, 35 110 C 35 70, 55 40, 100 40 Z"
-                ]
-          }}
-          transition={{
-            repeat: isHit ? 0 : Infinity,
-            duration: 3,
-            ease: "easeInOut"
-          }}
         />
 
         {/* 3D Highlight Curve */}
@@ -104,7 +84,7 @@ const SelfDoubtSlime = ({ isHit, isDefeated }) => {
           fill="none"
         />
 
-        {/* Floating Crown / Antlers (Representing Self-Doubt's fake authority) */}
+        {/* Floating Crown / Antlers */}
         <path
           d="M 85 28 L 92 35 L 100 24 L 108 35 L 115 28 L 108 40 L 92 40 Z"
           fill="#fbbf24"

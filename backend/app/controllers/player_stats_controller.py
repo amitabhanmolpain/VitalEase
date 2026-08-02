@@ -42,9 +42,10 @@ def update_stats():
     game = data.get('game')
     win = data.get('win')
     xp = data.get('xp', 0)
+    badges = data.get('badges', [])
     if not game or win is None:
         return jsonify({'error': 'Missing game or win'}), 400
-    stats = update_game_result(user_id, game, win, xp)
+    stats = update_game_result(user_id, game, win, xp, badges=badges)
     data = stats.to_mongo().to_dict()
     if '_id' in data:
         data['_id'] = str(data['_id'])
@@ -91,6 +92,10 @@ def reset_game_stats():
     stats.global_stats['losses'] = 0
     stats.global_stats['current_streak'] = 0
     stats.global_stats['win_rate'] = 0.0
+
+    # Clear achievements and badges
+    stats.achievements = []
+    stats.badges = []
 
     stats.updated_at = datetime.utcnow()
     stats.save()
