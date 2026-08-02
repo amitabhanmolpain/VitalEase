@@ -4,18 +4,18 @@ import { Trophy } from 'lucide-react';
 const XPBar = ({ xp, level }) => {
   const xpForCurrentLevel = (level - 1) * 100;
   const xpForNextLevel = level * 100;
-  const currentLevelXP = xp - xpForCurrentLevel;
+  const currentLevelXP = Math.max(0, xp - xpForCurrentLevel);
   const xpNeeded = xpForNextLevel - xpForCurrentLevel;
-  const percentage = (currentLevelXP / xpNeeded) * 100;
+  const percentage = Math.min(100, Math.max(0, (currentLevelXP / xpNeeded) * 100));
 
   return (
     <div className="w-full">
       <div className="flex justify-between items-center mb-2">
-        <span className="text-sm font-semibold text-purple-300">
+        <span className="text-sm font-semibold text-purple-200">
           XP: {currentLevelXP} / {xpNeeded}
         </span>
-        <span className="text-xs text-gray-400">
-          {xpNeeded - currentLevelXP} to next level
+        <span className="text-xs text-purple-300/80 font-medium">
+          {Math.max(0, xpNeeded - currentLevelXP)} to next level
         </span>
       </div>
       <div className="w-full h-6 bg-gray-800/50 rounded-full overflow-hidden border-2 border-purple-500/30">

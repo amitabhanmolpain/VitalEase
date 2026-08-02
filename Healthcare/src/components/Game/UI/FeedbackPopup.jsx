@@ -34,12 +34,36 @@ const FeedbackPopup = ({ result, onNext }) => {
               className="inline-block mb-4"
               animate={{
                 scale: [1, 1.2, 1],
-                rotate: result.isCorrect ? [0, 360] : [0, -10, 10, -10, 0]
+                rotate: result.isCorrect ? 0 : [0, -10, 10, -10, 0]
               }}
               transition={{ duration: 0.6 }}
             >
               {result.isCorrect ? (
-                <CheckCircle size={80} className="text-white" strokeWidth={3} />
+                <svg viewBox="0 0 100 100" className="w-28 h-28 drop-shadow-[0_8px_16px_rgba(251,191,36,0.5)]">
+                  <defs>
+                    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#fbbf24" />
+                      <stop offset="50%" stopColor="#f59e0b" />
+                      <stop offset="100%" stopColor="#d97706" />
+                    </linearGradient>
+                    <linearGradient id="goldHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+                      <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                  {/* Glowing background rays */}
+                  <circle cx="50" cy="50" r="45" fill="none" stroke="#fbbf24" strokeWidth="2" strokeDasharray="6,4" opacity="0.6" className="animate-spin" style={{ animationDuration: '15s' }} />
+                  {/* Medal Ribbon */}
+                  <path d="M 38 65 L 50 90 L 62 65 Z" fill="#ef4444" />
+                  <path d="M 44 65 L 50 90 L 56 65 Z" fill="#ffffff" opacity="0.8" />
+                  {/* Medal Body */}
+                  <circle cx="50" cy="50" r="28" fill="url(#goldGrad)" stroke="#fef08a" strokeWidth="3" />
+                  <circle cx="50" cy="50" r="23" fill="none" stroke="#d97706" strokeWidth="1" strokeDasharray="3,2" />
+                  {/* Inner Star */}
+                  <path d="M 50 34 L 54 44 L 64 45 L 56 52 L 59 62 L 50 56 L 41 62 L 44 52 L 36 45 L 46 44 Z" fill="#ffffff" />
+                  {/* Medal Gloss */}
+                  <path d="M 28 40 C 35 28, 65 28, 72 40 C 65 32, 35 32, 28 40 Z" fill="url(#goldHighlight)" />
+                </svg>
               ) : (
                 <XCircle size={80} className="text-white" strokeWidth={3} />
               )}

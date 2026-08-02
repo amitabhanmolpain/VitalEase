@@ -12,7 +12,7 @@ const GameStart = ({ onStart, onExit }) => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-pink-900 to-indigo-900 flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-zinc-950 flex items-center justify-center p-6 relative overflow-hidden">
       {/* Back Button */}
       {onExit && (
         <motion.button

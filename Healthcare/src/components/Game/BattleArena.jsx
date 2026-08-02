@@ -13,6 +13,108 @@ import SelfDoubtSlime from './Enemies/SelfDoubtSlime';
 import AnxietyGhost from './Enemies/AnxietyGhost';
 import HopelessnessTroll from './Enemies/HopelessnessTroll';
 
+const renderBadgeIcon = (name) => {
+  let badgeTitle = name;
+  let colors = {
+    bg: "from-yellow-400 to-amber-500",
+    border: "border-yellow-300",
+    glow: "shadow-yellow-400/30"
+  };
+  let iconSvg = null;
+
+  if (name.includes("Level")) {
+    const lvlNum = name.replace(/\D/g, "");
+    colors = {
+      bg: "from-blue-500 to-indigo-600",
+      border: "border-blue-400",
+      glow: "shadow-blue-500/30"
+    };
+    iconSvg = (
+      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+        <polygon points="50,15 80,30 80,65 50,85 20,65 20,30" fill="url(#blueGrad)" stroke="#93c5fd" strokeWidth="3" />
+        <text x="50" y="58" fill="#ffffff" fontSize="28" fontWeight="bold" textAnchor="middle">{lvlNum}</text>
+      </svg>
+    );
+  } else if (name === "Mind Warrior") {
+    colors = {
+      bg: "from-purple-500 to-fuchsia-600",
+      border: "border-purple-400",
+      glow: "shadow-purple-500/30"
+    };
+    iconSvg = (
+      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+        <polygon points="50,15 80,30 80,65 50,85 20,65 20,30" fill="url(#purpGrad)" stroke="#e879f9" strokeWidth="3" />
+        <path d="M 50 30 L 50 70 M 42 62 L 58 62" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
+      </svg>
+    );
+  } else if (name === "Thought Champion") {
+    colors = {
+      bg: "from-yellow-400 to-amber-500",
+      border: "border-yellow-300",
+      glow: "shadow-yellow-400/30"
+    };
+    iconSvg = (
+      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+        <path d="M 25 70 L 75 70 L 68 85 L 32 85 Z" fill="#d97706" />
+        <path d="M 20 40 L 35 55 L 50 30 L 65 55 L 80 40 L 75 70 L 25 70 Z" fill="url(#goldGrad)" stroke="#fef08a" strokeWidth="3" />
+        <circle cx="50" cy="55" r="6" fill="#ef4444" />
+      </svg>
+    );
+  } else if (name === "10 Victories") {
+    colors = {
+      bg: "from-green-500 to-emerald-600",
+      border: "border-green-400",
+      glow: "shadow-green-500/30"
+    };
+    iconSvg = (
+      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+        <circle cx="50" cy="50" r="30" fill="url(#emeraldGrad)" stroke="#6ee7b7" strokeWidth="3" />
+        <text x="50" y="58" fill="#ffffff" fontSize="22" fontWeight="bold" textAnchor="middle">10V</text>
+      </svg>
+    );
+  } else {
+    // Battle Master or other fallback
+    colors = {
+      bg: "from-rose-500 to-red-600",
+      border: "border-rose-400",
+      glow: "shadow-rose-500/30"
+    };
+    iconSvg = (
+      <svg viewBox="0 0 100 100" className="w-10 h-10 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+        <circle cx="50" cy="50" r="30" fill="url(#roseGrad)" stroke="#fda4af" strokeWidth="3" />
+        <path d="M 35 35 L 65 65 M 65 35 L 35 65" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <div className={`flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r ${colors.bg} border-2 ${colors.border} shadow-lg ${colors.glow} text-white`}>
+      <svg width="0" height="0" className="absolute">
+        <defs>
+          <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#60a5fa" />
+            <stop offset="100%" stopColor="#1d4ed8" />
+          </linearGradient>
+          <linearGradient id="purpGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#c084fc" />
+            <stop offset="100%" stopColor="#701a75" />
+          </linearGradient>
+          <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#34d399" />
+            <stop offset="100%" stopColor="#047857" />
+          </linearGradient>
+          <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#fb7185" />
+            <stop offset="100%" stopColor="#be123c" />
+          </linearGradient>
+        </defs>
+      </svg>
+      {iconSvg}
+      <span className="font-bold text-sm tracking-wide">{badgeTitle}</span>
+    </div>
+  );
+};
+
 const BattleArena = ({ onExit }) => {
   const {
     xp,
@@ -237,7 +339,7 @@ const BattleArena = ({ onExit }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-zinc-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white text-xl">Loading your progress...</p>
@@ -247,7 +349,7 @@ const BattleArena = ({ onExit }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-zinc-950 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(20)].map((_, i) => (
@@ -321,11 +423,12 @@ const BattleArena = ({ onExit }) => {
 
         {/* Stats Bar */}
         <motion.div
-          className="bg-white/10 backdrop-blur-md rounded-2xl p-6 mb-6 border border-white/20"
+          className="bg-white/5 backdrop-blur-xl rounded-3xl p-6 mb-6 border border-white/10 shadow-2xl relative overflow-hidden"
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
         >
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-indigo-500/5 pointer-events-none" />
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center relative z-10">
             {/* Level Badge */}
             <div className="flex items-center justify-center">
               <LevelBadge level={level} />
@@ -338,21 +441,64 @@ const BattleArena = ({ onExit }) => {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 md:col-span-2">
-              <div className="bg-gradient-to-br from-yellow-500/30 to-orange-500/30 rounded-xl p-3 text-center border border-yellow-400/30">
-                <Zap size={20} className="text-yellow-400 mx-auto mb-1" />
-                <p className="text-white font-bold text-lg">{streak}</p>
-                <p className="text-white/70 text-xs">Streak</p>
-              </div>
-              <div className="bg-gradient-to-br from-green-500/30 to-emerald-500/30 rounded-xl p-3 text-center border border-green-400/30">
-                <Target size={20} className="text-green-400 mx-auto mb-1" />
-                <p className="text-white font-bold text-lg">{victories}/{totalBattles}</p>
-                <p className="text-white/70 text-xs">Wins</p>
-              </div>
-              <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl p-3 text-center border border-purple-400/30">
-                <Award size={20} className="text-purple-400 mx-auto mb-1" />
-                <p className="text-white font-bold text-lg">{badges.length}</p>
-                <p className="text-white/70 text-xs">Badges</p>
-              </div>
+              {/* Streak Card */}
+              <motion.div 
+                className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center hover:bg-white/10 transition shadow-lg flex flex-col items-center justify-center"
+                whileHover={{ scale: 1.05, y: -2 }}
+              >
+                {/* 3D Noto Lightning Bolt */}
+                <svg viewBox="0 0 100 100" className="w-12 h-12 mb-2 drop-shadow-[0_4px_8px_rgba(251,191,36,0.4)]">
+                  <defs>
+                    <linearGradient id="boltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#fef08a" />
+                      <stop offset="50%" stopColor="#fbbf24" />
+                      <stop offset="100%" stopColor="#d97706" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M 55 10 L 25 55 L 48 55 L 40 90 L 75 42 L 52 42 Z" fill="url(#boltGrad)" stroke="#fef08a" strokeWidth="2.5" />
+                </svg>
+                <p className="text-white font-black text-2xl tracking-wide">{streak}</p>
+                <p className="text-purple-300 font-bold text-xs uppercase tracking-wider">Streak</p>
+              </motion.div>
+
+              {/* Wins Card */}
+              <motion.div 
+                className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center hover:bg-white/10 transition shadow-lg flex flex-col items-center justify-center"
+                whileHover={{ scale: 1.05, y: -2 }}
+              >
+                {/* 3D Noto Target */}
+                <svg viewBox="0 0 100 100" className="w-12 h-12 mb-2 drop-shadow-[0_4px_8px_rgba(239,68,68,0.4)]">
+                  <circle cx="50" cy="50" r="40" fill="#ef4444" stroke="#fca5a5" strokeWidth="3" />
+                  <circle cx="50" cy="50" r="28" fill="#ffffff" />
+                  <circle cx="50" cy="50" r="16" fill="#ef4444" />
+                  <circle cx="50" cy="50" r="6" fill="#ffffff" />
+                  {/* Dart */}
+                  <path d="M 50 50 L 75 25 L 80 30 Z" fill="#10b981" />
+                </svg>
+                <p className="text-white font-black text-2xl tracking-wide">{victories}</p>
+                <p className="text-purple-300 font-bold text-xs uppercase tracking-wider">Wins</p>
+              </motion.div>
+
+              {/* Badges Card */}
+              <motion.div 
+                className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center hover:bg-white/10 transition shadow-lg flex flex-col items-center justify-center"
+                whileHover={{ scale: 1.05, y: -2 }}
+              >
+                {/* 3D Noto Badge */}
+                <svg viewBox="0 0 100 100" className="w-12 h-12 mb-2 drop-shadow-[0_4px_8px_rgba(168,85,247,0.4)]">
+                  <defs>
+                    <linearGradient id="badgeShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#c084fc" />
+                      <stop offset="100%" stopColor="#7e22ce" />
+                    </linearGradient>
+                  </defs>
+                  <polygon points="50,15 80,30 80,65 50,85 20,65 20,30" fill="url(#badgeShieldGrad)" stroke="#e9d5ff" strokeWidth="3" />
+                  <polygon points="50,22 73,34 73,61 50,77 27,61 27,34" fill="#ffffff" opacity="0.15" />
+                  <path d="M 50 32 L 53 41 L 62 42 L 55 48 L 57 57 L 50 52 L 43 57 L 45 48 L 38 42 L 47 41 Z" fill="#fbbf24" />
+                </svg>
+                <p className="text-white font-black text-2xl tracking-wide">{badges.length}</p>
+                <p className="text-purple-300 font-bold text-xs uppercase tracking-wider">Badges</p>
+              </motion.div>
             </div>
           </div>
         </motion.div>
@@ -361,11 +507,12 @@ const BattleArena = ({ onExit }) => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Enemy Side */}
           <motion.div
-            className="bg-gradient-to-br from-red-900/40 to-purple-900/40 backdrop-blur-md rounded-2xl p-8 border-2 border-red-500/30 min-h-[400px] flex flex-col items-center justify-center"
+            className="bg-gradient-to-br from-purple-950/60 via-slate-900/60 to-purple-950/60 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl min-h-[400px] flex flex-col items-center justify-center relative overflow-hidden"
             initial={{ x: -100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
           >
+            <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/5 to-transparent pointer-events-none" />
             <motion.div
               className="mb-4 text-center"
               initial={{ y: -20, opacity: 0 }}
@@ -478,13 +625,12 @@ const BattleArena = ({ onExit }) => {
               {badges.map((badge, idx) => (
                 <motion.div
                   key={idx}
-                  className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg text-white font-semibold shadow-lg"
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ delay: idx * 0.1, type: "spring" }}
                   whileHover={{ scale: 1.05, y: -2 }}
                 >
-                  🏆 {badge}
+                  {renderBadgeIcon(badge)}
                 </motion.div>
               ))}
             </div>
