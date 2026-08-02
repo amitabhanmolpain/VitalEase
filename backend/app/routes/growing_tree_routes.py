@@ -235,3 +235,32 @@ def reset_tree():
             "support_message": "",
             "current_mood": ""
         }), 200
+
+@growing_tree_bp.route('/transcribe', methods=['POST'])
+@jwt_required()
+def transcribe_audio_route():
+    import os
+    audio_file = request.files.get("audio")
+    if not audio_file:
+        return jsonify({"error": "No audio provided"}), 400
+
+    # Ensure a local temp directory exists in workspace
+    temp_dir = os.path.join(os.getcwd(), 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_path = os.path.join(temp_dir, f"temp_{uuid.uuid4().hex}.wav")
+    audio_file.save(temp_path)
+
+    try:
+        from app.services.whisper_service import transcribe_audio
+        text = transcribe_audio(temp_path)
+        return jsonify({"text": text.strip()})
+    except Exception as e:
+        print(f"[STT Route Error] {e}")
+        return jsonify({"error": f"Transcription failed: {str(e)}"}), 500
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+

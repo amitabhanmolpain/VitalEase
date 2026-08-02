@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ArrowLeft, Send, Leaf, RefreshCw, AlertCircle } from "lucide-react";
+import { ArrowLeft, Send, Leaf, RefreshCw, AlertCircle, Mic, Square } from "lucide-react";
 import { growingTreeAPI } from "../../services/growingTreeApi";
 
 // ─── Sound Engine (Web Audio API — no files needed) ─────────────────────────
@@ -43,6 +43,47 @@ const playCompleteSound = () => {
       osc.stop(ctx.currentTime + start + dur + 0.05);
     };
     play(440, 0, 0.2); play(554, 0.1, 0.2); play(659, 0.2, 0.3);
+  } catch (_) {}
+};
+
+const playMicStartSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const play = (freq, start, dur) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "sine"; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, ctx.currentTime + start);
+      g.gain.linearRampToValueAtTime(0.08, ctx.currentTime + start + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    // Quick double beep (high pitch)
+    play(880, 0, 0.08);
+    play(1046, 0.08, 0.12);
+  } catch (_) {}
+};
+
+const playMicSuccessSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const play = (freq, start, dur) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "triangle"; osc.frequency.value = freq;
+      g.gain.setValueAtTime(0, ctx.currentTime + start);
+      g.gain.linearRampToValueAtTime(0.1, ctx.currentTime + start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    };
+    // Upward warm chime
+    play(523, 0, 0.15);
+    play(659, 0.08, 0.15);
+    play(784, 0.16, 0.25);
   } catch (_) {}
 };
 
@@ -109,6 +150,12 @@ const GrowingTreeGame = ({ onExit }) => {
   const [isNewThreadMode, setIsNewThreadMode] = useState(false);
   const [apiError, setApiError] = useState("");
   const [streamingText, setStreamingText] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const [sttLoading, setSttLoading] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingTimerRef = useRef(null);
 
   // Growth animation state
   const [growing, setGrowing] = useState(false);
@@ -208,6 +255,67 @@ const GrowingTreeGame = ({ onExit }) => {
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/wav" });
+        await handleTranscribe(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      playMicStartSound();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("Microphone access denied or error:", err);
+      setApiError("Could not access microphone. Please check permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+    }
+  };
+
+  const handleTranscribe = async (audioBlob) => {
+    try {
+      setSttLoading(true);
+      setApiError("");
+      const result = await growingTreeAPI.transcribeAudio(audioBlob);
+      if (result && result.text) {
+        setStatementInput(prev => (prev ? prev + " " + result.text : result.text));
+        playMicSuccessSound();
+      } else {
+        setApiError("No speech detected. Please speak closer to the microphone.");
+      }
+    } catch (err) {
+      console.error("Transcription error:", err);
+      setApiError(err.response?.data?.error || err.message || "Failed to transcribe audio.");
+    } finally {
+      setSttLoading(false);
     }
   };
 
@@ -489,14 +597,42 @@ const GrowingTreeGame = ({ onExit }) => {
               <form onSubmit={handleSubmitStatement} className="flex flex-col gap-4">
                 <div>
                   <label className="text-emerald-300 text-[10px] font-bold tracking-widest uppercase block mb-2">What's going on today?</label>
+                  <div className="relative">
                   <textarea
                     value={statementInput}
                     onChange={e => setStatementInput(e.target.value)}
                     placeholder="E.g. My dog died, I'm devastated… or just feeling really low today…"
-                    className="w-full h-32 px-5 py-4 rounded-2xl bg-black/40 backdrop-blur-sm border border-white/15 text-white placeholder-white/30 focus:outline-none focus:border-emerald-400 transition resize-none text-sm leading-relaxed"
+                    className="w-full h-32 pl-5 pr-14 py-4 rounded-2xl bg-black/40 backdrop-blur-sm border border-white/15 text-white placeholder-white/30 focus:outline-none focus:border-emerald-400 transition resize-none text-sm leading-relaxed"
                     required
                   />
+                  <div className="absolute right-4 bottom-4 z-10 flex items-center gap-2">
+                    {isRecording ? (
+                      <button
+                        type="button"
+                        onClick={stopRecording}
+                        className="p-3 bg-red-500/25 hover:bg-red-500/40 text-red-300 border border-red-500/50 rounded-xl hover:scale-105 transition duration-200 flex items-center justify-center gap-1.5 animate-pulse"
+                      >
+                        <Square size={16} />
+                        <span className="text-[10px] font-bold font-mono">{recordingTime}s</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={startRecording}
+                        disabled={submitting || sttLoading}
+                        className="p-3 bg-white/10 hover:bg-white/20 border border-white/15 text-white/80 hover:text-white rounded-xl hover:scale-105 transition duration-200 flex items-center justify-center disabled:opacity-50"
+                        title="Record your voice"
+                      >
+                        {sttLoading ? (
+                          <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Mic size={16} />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
+              </div>
                 {submitting && (
                   <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-mono text-[11px] leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap">
                     <span className="animate-pulse inline-block mr-1">✦</span>

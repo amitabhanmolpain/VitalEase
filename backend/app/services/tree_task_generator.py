@@ -73,7 +73,7 @@ CRITICAL RULES FOR GENERATION:
     print("=====================================================")
 
     response = client.models.generate_content(
-        model='gemini-3.5-flash-lite',
+        model='gemini-2.5-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -144,7 +144,7 @@ CRITICAL RULES FOR GENERATION:
 """
 
     response_stream = client.models.generate_content_stream(
-        model='gemini-3.5-flash-lite',
+        model='gemini-2.5-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",

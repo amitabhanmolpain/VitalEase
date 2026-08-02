@@ -69,5 +69,15 @@ export const growingTreeAPI = {
   resetTree: async () => {
     const response = await apiClient.post('/growing-tree/reset');
     return response.data;
+  },
+  transcribeAudio: async (audioBlob) => {
+    const formData = new FormData();
+    formData.append("audio", audioBlob, "recording.wav");
+    const response = await apiClient.post('/growing-tree/transcribe', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
   }
 };
