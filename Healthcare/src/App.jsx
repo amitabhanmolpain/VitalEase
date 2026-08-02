@@ -12,6 +12,7 @@ import ThoughtBattleGame from './ThoughtBattleGame';
 import LifeQuestGame from './components/LifeQuest/LifeQuestGame';
 import EmotionQuestGame from './components/EmotionQuest/EmotionQuestGame';
 import { authAPI } from './services/api';
+import GrowingTreeGame from './components/GrowingTree/GrowingTreeGame';
 
 // ProtectedRoute: redirects to /login if not authenticated
 const ProtectedRoute = ({ children }) => {
@@ -46,6 +47,8 @@ const App = () => {
         <Route path="/games/emotion-quest" element={<ProtectedRoute><EmotionQuestGamePage /></ProtectedRoute>} />
         <Route path="/games/reframe" element={<ProtectedRoute><ReframeGamePage /></ProtectedRoute>} />
 
+        <Route path="/games/growing-tree" element={<ProtectedRoute><GrowingTreeGamePage /></ProtectedRoute>} />
+
         {/* Legacy reframe-game routes (kept for backwards compat) */}
         <Route path="/reframe-game" element={<ProtectedRoute><ReframeGamePage /></ProtectedRoute>} />
         <Route path="/reframe-game/world-test" element={<ReframeWorldTest />} />
@@ -79,6 +82,11 @@ const EmotionQuestGamePage = () => {
 const ReframeGamePage = () => {
   const navigate = useNavigate();
   return <ReframeGame onExit={() => navigate('/dashboard')} />;
+};
+
+const GrowingTreeGamePage = () => {
+  const navigate = useNavigate();
+  return <GrowingTreeGame onExit={() => navigate('/dashboard')} />;
 };
 
 // ── Auth Page Wrappers ────────────────────────────────────────────────────────

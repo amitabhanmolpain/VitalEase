@@ -21,7 +21,8 @@ import {
   Zap,
   Award,
   Gamepad2,
-  Target
+  Target,
+  TreePine
 } from "lucide-react";
 import { assessmentAPI } from '../../services/assessmentApi';
 
@@ -704,6 +705,34 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
                   className="w-full py-4 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-xl text-slate-950 font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
                 >
                   <Brain size={24} />
+                  Start Game
+                </button>
+              </div>
+            </div>
+
+            {/* The Growing Tree Card */}
+            <div className="bg-gradient-to-br from-emerald-900/50 to-green-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-emerald-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
+              {/* Game Cover Image */}
+              <div className="w-full overflow-hidden">
+                <img
+                  src="/growing tree game.png"
+                  alt="The Growing Tree"
+                  className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                />
+              </div>
+
+              <div className="p-6">
+                <h3 className="font-poppins font-bold text-2xl text-white mb-1">The Growing Tree</h3>
+                <p className="text-emerald-300 mb-3">Proof you kept going, one small step at a time.</p>
+                <p className="text-gray-300 mb-6 leading-relaxed text-sm">
+                  You tell it what's going on. It gives you one small task that fits. You do it, tell the game — the tree grows a little. Miss a day, tree just waits, no punishment. Over time, the tree shows real proof you kept going.
+                </p>
+
+                <button
+                  onClick={() => navigate('/games/growing-tree')}
+                  className="w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 rounded-xl text-slate-950 font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <TreePine size={24} />
                   Start Game
                 </button>
               </div>
