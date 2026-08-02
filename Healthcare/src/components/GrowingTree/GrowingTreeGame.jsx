@@ -105,6 +105,8 @@ const GrowingTreeGame = ({ onExit }) => {
   const [statementInput, setStatementInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [completingTaskId, setCompletingTaskId] = useState(null);
+  const [resetting, setResetting] = useState(false);
+  const [confirmReplant, setConfirmReplant] = useState(false);
 
   // Growth animation state
   const [growing, setGrowing] = useState(false);
@@ -224,6 +226,26 @@ const GrowingTreeGame = ({ onExit }) => {
     setTreeState(prev => ({ ...prev, tasks: [], acknowledgment: "", needs_human_support: false, support_message: "" }));
   };
 
+  const handleReplant = async () => {
+    setConfirmReplant(false);
+    setResetting(true);
+    // Fade out then swap to seedling
+    setImgFading(true);
+    await new Promise(r => setTimeout(r, 500));
+    setDisplayedImg("/tree_stage_1.png");
+    prevStageRef.current = 0;
+    setImgFading(false);
+    // Reset all state locally immediately
+    const fresh = {
+      tree_growth: 0, tasks: [], completed_tasks: [], remaining_tasks: [],
+      current_mood: "", acknowledgment: "", needs_human_support: false, support_message: ""
+    };
+    setTreeState(fresh);
+    // Persist to backend
+    try { await growingTreeAPI.resetTree(); } catch (_) {}
+    setResetting(false);
+  };
+
   const stage = getStage(treeState.tree_growth || 0);
   const hasTasks = treeState.tasks && treeState.tasks.length > 0;
   const allDone = hasTasks && treeState.tasks.every(t => t.completed);
@@ -332,6 +354,16 @@ const GrowingTreeGame = ({ onExit }) => {
           <p className="text-center text-white/30 text-[10px] italic max-w-xs leading-relaxed">
             "Every small step is a leaf. If today is hard, your tree just waits."
           </p>
+
+          {/* Replant button — proper button */}
+          <button
+            onClick={() => setConfirmReplant(true)}
+            disabled={resetting}
+            className="mt-2 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/30 border border-amber-400/30 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 font-semibold text-sm transition-all duration-200 group"
+          >
+            <span className="text-base group-hover:rotate-12 transition-transform inline-block">🌱</span>
+            {resetting ? "Replanting…" : "Something else bothering you?"}
+          </button>
         </section>
 
         {/* ── RIGHT: Interaction ── */}
@@ -454,6 +486,41 @@ const GrowingTreeGame = ({ onExit }) => {
           )}
         </section>
       </main>
+
+      {/* ── Confirm Replant Dialog ── */}
+      {confirmReplant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setConfirmReplant(false)}
+          />
+          {/* Dialog */}
+          <div className="relative z-10 bg-slate-900/90 border border-white/10 backdrop-blur-xl rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+            {/* Big seedling emoji */}
+            <div className="text-6xl mb-4 animate-bounce">🌱</div>
+            <h2 className="text-white font-extrabold text-xl mb-2">Replant your tree?</h2>
+            <p className="text-white/50 text-sm leading-relaxed mb-6">
+              Your tree will go back to a <span className="text-amber-300 font-semibold">tiny seedling</span>.
+              All current tasks and growth will be cleared so you can start fresh with something new on your mind.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmReplant(false)}
+                className="flex-1 py-3 rounded-2xl bg-white/8 hover:bg-white/15 text-white/70 hover:text-white font-bold text-sm transition border border-white/10"
+              >
+                Keep growing
+              </button>
+              <button
+                onClick={handleReplant}
+                className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-400 hover:from-amber-400 hover:to-orange-300 text-slate-950 font-extrabold text-sm transition hover:scale-[1.03] shadow-lg"
+              >
+                🌱 Yes, replant
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

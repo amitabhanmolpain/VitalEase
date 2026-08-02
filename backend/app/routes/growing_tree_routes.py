@@ -159,3 +159,42 @@ def complete_task():
             'support_message': '',
             'current_mood': ''
         }), 200
+
+@growing_tree_bp.route('/reset', methods=['POST'])
+@jwt_required()
+def reset_tree():
+    """Reset the tree back to seed — start fresh with a new concern."""
+    user_id = get_jwt_identity()
+    try:
+        state = GrowingTreeState.objects(user_id=user_id).first()
+        if state:
+            state.tree_growth = 0
+            state.tasks = []
+            state.acknowledgment = ""
+            state.current_mood = ""
+            state.needs_human_support = False
+            state.support_message = ""
+            state.last_updated = datetime.utcnow()
+            state.save()
+        return jsonify({
+            "tree_growth": 0,
+            "tasks": [],
+            "completed_tasks": [],
+            "remaining_tasks": [],
+            "acknowledgment": "",
+            "needs_human_support": False,
+            "support_message": "",
+            "current_mood": ""
+        }), 200
+    except Exception as e:
+        print(f"[Growing Tree Reset Error] {e}")
+        return jsonify({
+            "tree_growth": 0,
+            "tasks": [],
+            "completed_tasks": [],
+            "remaining_tasks": [],
+            "acknowledgment": "",
+            "needs_human_support": False,
+            "support_message": "",
+            "current_mood": ""
+        }), 200

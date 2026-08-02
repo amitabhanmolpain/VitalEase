@@ -12,5 +12,9 @@ export const growingTreeAPI = {
   completeTask: async (taskId, taskSize) => {
     const response = await apiClient.post('/growing-tree/complete-task', { task_id: taskId, task_size: taskSize || 1 });
     return response.data;
+  },
+  resetTree: async () => {
+    const response = await apiClient.post('/growing-tree/reset');
+    return response.data;
   }
 };
