@@ -1,65 +1,51 @@
 import { motion } from 'framer-motion';
-import { Trophy, Star } from 'lucide-react';
 
 const LevelBadge = ({ level }) => {
   return (
     <motion.div
-      className="relative"
+      className="relative flex items-center justify-center"
       initial={{ scale: 0, rotate: -180 }}
       animate={{ scale: 1, rotate: 0 }}
       transition={{ type: "spring", stiffness: 200, damping: 15 }}
+      whileHover={{ scale: 1.08 }}
     >
-      <motion.div
-        className="w-20 h-20 bg-gradient-to-br from-yellow-400 via-orange-400 to-red-500 rounded-full flex items-center justify-center shadow-lg border-4 border-yellow-300"
-        whileHover={{ scale: 1.1, rotate: 5 }}
-        animate={{
-          boxShadow: [
-            '0 0 20px rgba(251, 191, 36, 0.5)',
-            '0 0 40px rgba(251, 191, 36, 0.8)',
-            '0 0 20px rgba(251, 191, 36, 0.5)'
-          ]
-        }}
-        transition={{
-          boxShadow: { repeat: Infinity, duration: 2 }
-        }}
-      >
-        <div className="text-center">
-          <Trophy size={24} className="text-white mx-auto mb-1" />
-          <span className="text-white font-bold text-lg">{level}</span>
-        </div>
-      </motion.div>
+      <div className="absolute inset-0 bg-yellow-400/20 blur-xl rounded-full" />
       
-      {/* Floating Stars */}
-      <motion.div
-        className="absolute -top-2 -right-2"
-        animate={{
-          y: [-3, -8, -3],
-          rotate: [0, 360],
-          opacity: [0.6, 1, 0.6]
-        }}
-        transition={{
-          repeat: Infinity,
-          duration: 2
-        }}
-      >
-        <Star size={16} className="text-yellow-300 fill-yellow-300" />
-      </motion.div>
-      
-      <motion.div
-        className="absolute -bottom-1 -left-2"
-        animate={{
-          y: [-2, -6, -2],
-          rotate: [0, -360],
-          opacity: [0.5, 0.9, 0.5]
-        }}
-        transition={{
-          repeat: Infinity,
-          duration: 2.5,
-          delay: 0.5
-        }}
-      >
-        <Star size={12} className="text-yellow-300 fill-yellow-300" />
-      </motion.div>
+      {/* 3D Gold Level Badge SVG */}
+      <svg viewBox="0 0 100 100" className="w-24 h-24 drop-shadow-[0_8px_16px_rgba(251,191,36,0.4)]">
+        <defs>
+          <linearGradient id="goldGradBadge" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#fde047" />
+            <stop offset="35%" stopColor="#eab308" />
+            <stop offset="70%" stopColor="#ca8a04" />
+            <stop offset="100%" stopColor="#854d0e" />
+          </linearGradient>
+          <linearGradient id="shineGradBadge" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {/* Outer Glowing Ring */}
+        <circle cx="50" cy="50" r="46" fill="none" stroke="#fef08a" strokeWidth="2.5" opacity="0.6" strokeDasharray="8 4" />
+
+        {/* Badge Base */}
+        <polygon points="50,12 85,30 85,70 50,88 15,70 15,30" fill="url(#goldGradBadge)" stroke="#fef08a" strokeWidth="3" />
+
+        {/* Inner Shield */}
+        <polygon points="50,18 80,33 80,67 50,82 20,67 20,33" fill="#1e1b4b" opacity="0.9" />
+
+        {/* Shiny Highlight */}
+        <path d="M 23 35 C 40 22, 60 22, 77 35 C 60 26, 40 26, 23 35 Z" fill="url(#shineGradBadge)" />
+
+        {/* Crown Icon */}
+        <path d="M 40 46 L 44 50 L 50 42 L 56 50 L 60 46 L 57 56 L 43 56 Z" fill="#eab308" />
+
+        {/* Level text */}
+        <text x="50" y="74" fill="#ffffff" fontSize="24" fontWeight="bold" textAnchor="middle" letterSpacing="1">
+          Lvl {level}
+        </text>
+      </svg>
     </motion.div>
   );
 };

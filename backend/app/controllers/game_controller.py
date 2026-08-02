@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models.user_models import User
 from app.models.user_game_profile import UserGameProfile, GameScore
 from mongoengine import Q
+from datetime import datetime
 
 game_bp = Blueprint('game', __name__)
 
@@ -67,18 +68,50 @@ def submit_game():
 
 @game_bp.route('/api/game/leaderboard', methods=['GET'])
 def leaderboard():
+    from app.services.redis_service import redis_client
+    import json
+
+    # Try Redis cache first (cache for 30 seconds)
+    cache_key = "leaderboard:top10"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return jsonify(json.loads(cached)), 200
+
     top_profiles = UserGameProfile.objects.order_by('-level', '-xp', '-total_score').limit(10)
     result = []
+
+    # Also pull Thought Battle-specific stats from PlayerStats
+    from app.models.player_stats_model import PlayerStats
+
     for p in top_profiles:
-        result.append({
+        entry = {
             'user_id': str(p.user.id),
             'name': p.user.name,
             'level': p.level,
             'xp': p.xp,
             'total_score': p.total_score,
             'badges': p.badges
-        })
-    return jsonify({'leaderboard': result}), 200
+        }
+        # Enrich with Thought Battle game-specific stats
+        try:
+            ps = PlayerStats.objects(user_id=str(p.user.id)).first()
+            if ps and ps.games.get('thoughtbattle'):
+                tb = ps.games['thoughtbattle']
+                entry['thoughtbattle'] = {
+                    'level': tb.get('level', 1),
+                    'xp': tb.get('xp', 0),
+                    'victories': tb.get('victories', 0),
+                    'losses': tb.get('losses', 0),
+                    'current_streak': tb.get('current_streak', 0)
+                }
+        except Exception:
+            pass
+        result.append(entry)
+
+    response_data = {'leaderboard': result}
+    # Cache for 30 seconds
+    redis_client.set(cache_key, json.dumps(response_data), ex=30)
+    return jsonify(response_data), 200
 
 @game_bp.route('/api/game/me', methods=['GET'])
 @jwt_required()

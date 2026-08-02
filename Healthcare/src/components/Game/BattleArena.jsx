@@ -13,6 +13,95 @@ import SelfDoubtSlime from './Enemies/SelfDoubtSlime';
 import AnxietyGhost from './Enemies/AnxietyGhost';
 import HopelessnessTroll from './Enemies/HopelessnessTroll';
 
+const renderBadgeIcon = (name) => {
+  let badgeTitle = name;
+  let emoji = "🎖️";
+  let colors = {
+    bg: "from-slate-700 to-slate-900",
+    border: "border-slate-500",
+    glow: "shadow-slate-500/30"
+  };
+
+  if (name.includes("Level")) {
+    const lvlNum = parseInt(name.replace(/\D/g, "")) || 1;
+    if (lvlNum === 1) {
+      emoji = "🛡️";
+      colors = {
+        bg: "from-blue-500 via-indigo-600 to-indigo-850",
+        border: "border-blue-400",
+        glow: "shadow-blue-500/40"
+      };
+    } else if (lvlNum === 2) {
+      emoji = "⚔️";
+      colors = {
+        bg: "from-cyan-500 via-teal-600 to-teal-850",
+        border: "border-cyan-400",
+        glow: "shadow-cyan-500/40"
+      };
+    } else if (lvlNum === 3) {
+      emoji = "👑";
+      colors = {
+        bg: "from-yellow-400 via-amber-500 to-amber-700",
+        border: "border-yellow-300",
+        glow: "shadow-yellow-500/40"
+      };
+    } else if (lvlNum === 4) {
+      emoji = "🔮";
+      colors = {
+        bg: "from-purple-500 via-pink-600 to-pink-850",
+        border: "border-purple-400",
+        glow: "shadow-purple-500/40"
+      };
+    } else {
+      emoji = "⚡";
+      colors = {
+        bg: "from-red-500 via-orange-500 to-yellow-600",
+        border: "border-orange-400",
+        glow: "shadow-orange-500/40"
+      };
+    }
+  } else if (name === "Mind Warrior") {
+    emoji = "🥋";
+    colors = {
+      bg: "from-emerald-500 to-teal-600",
+      border: "border-emerald-400",
+      glow: "shadow-emerald-500/30"
+    };
+  } else if (name === "Thought Champion") {
+    emoji = "🏆";
+    colors = {
+      bg: "from-yellow-400 to-amber-500",
+      border: "border-yellow-300",
+      glow: "shadow-yellow-400/30"
+    };
+  } else if (name === "10 Victories") {
+    emoji = "🥇";
+    colors = {
+      bg: "from-yellow-500 to-yellow-600",
+      border: "border-yellow-300",
+      glow: "shadow-yellow-500/30"
+    };
+  } else if (name === "Battle Master") {
+    emoji = "🎖️";
+    colors = {
+      bg: "from-rose-500 to-red-600",
+      border: "border-rose-400",
+      glow: "shadow-rose-500/30"
+    };
+  }
+
+  return (
+    <div className={`flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 backdrop-blur-xl border border-white/10 shadow-lg ${colors.glow} text-white hover:bg-white/10 transition-all cursor-pointer`}>
+      <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colors.bg} border-2 ${colors.border} flex items-center justify-center relative shadow-inner overflow-hidden flex-shrink-0`}>
+        {/* Shiny Gloss Highlight */}
+        <div className="absolute top-0 left-0 right-0 h-1/2 bg-white/20 rounded-t-full pointer-events-none" />
+        <span className="text-2xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">{emoji}</span>
+      </div>
+      <span className="font-extrabold text-sm tracking-wide whitespace-nowrap">{badgeTitle}</span>
+    </div>
+  );
+};
+
 const BattleArena = ({ onExit }) => {
   const {
     xp,
@@ -43,8 +132,61 @@ const BattleArena = ({ onExit }) => {
   const [showMusicPlayer, setShowMusicPlayer] = useState(false);
   const [displayedText, setDisplayedText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [unlockedBadge, setUnlockedBadge] = useState(null);
+
+  const playLevelUpSound = () => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const now = ctx.currentTime;
+      const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, idx) => {
+        // Primary synth note (Triangle wave for chiptune warmth)
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = 'triangle';
+        osc1.frequency.value = freq;
+        gain1.gain.setValueAtTime(0.3, now + idx * 0.07);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.4);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now + idx * 0.07);
+        osc1.stop(now + idx * 0.07 + 0.45);
+
+        // Harmonic shimmer note (Sine wave octave above)
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.value = freq * 1.5;
+        gain2.gain.setValueAtTime(0.15, now + idx * 0.07);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.35);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + idx * 0.07);
+        osc2.stop(now + idx * 0.07 + 0.4);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const scenario = scenarios[currentScenario];
+
+  const speakSituation = (text) => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.volume = 1.0;
+      utterance.rate = 0.95;
+      
+      const voices = window.speechSynthesis.getVoices();
+      const voice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Zira') || v.name.includes('David')));
+      if (voice) {
+        utterance.voice = voice;
+      }
+      window.speechSynthesis.speak(utterance);
+    }
+  };
 
   // Typing animation effect
   useEffect(() => {
@@ -53,6 +195,9 @@ const BattleArena = ({ onExit }) => {
     let currentIndex = 0;
     const text = scenario.situation;
     
+    // Auto-speak situation loudly on load
+    speakSituation(text);
+
     const typingInterval = setInterval(() => {
       if (currentIndex < text.length) {
         setDisplayedText(text.substring(0, currentIndex + 1));
@@ -69,7 +214,12 @@ const BattleArena = ({ onExit }) => {
       }
     }, 30);
 
-    return () => clearInterval(typingInterval);
+    return () => {
+      clearInterval(typingInterval);
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, [currentScenario, scenario.situation]);
 
   useEffect(() => {
@@ -154,9 +304,38 @@ const BattleArena = ({ onExit }) => {
       if (option.isCorrect) {
         setEnemyDefeated(true);
         playSound('victory');
+        
+        const oldLevel = level;
         addXP(20);
         incrementStreak();
         incrementVictories();
+
+        // Level up or victory/streak badge check
+        const newXP = xp + 20;
+        const newLevel = Math.floor(newXP / 100) + 1;
+        const isFirstVictory = (victories === 0);
+
+        if (newLevel > oldLevel) {
+          setTimeout(() => {
+            playLevelUpSound();
+            setUnlockedBadge(`Level ${newLevel} Warrior`);
+          }, 800);
+        } else if (isFirstVictory && !badges.includes("Level 1 Warrior")) {
+          setTimeout(() => {
+            playLevelUpSound();
+            setUnlockedBadge("Level 1 Warrior");
+          }, 800);
+        } else if (streak + 1 === 5 && !badges.includes("Mind Warrior")) {
+          setTimeout(() => {
+            playLevelUpSound();
+            setUnlockedBadge("Mind Warrior");
+          }, 800);
+        } else if (streak + 1 === 10 && !badges.includes("Thought Champion")) {
+          setTimeout(() => {
+            playLevelUpSound();
+            setUnlockedBadge("Thought Champion");
+          }, 800);
+        }
         
         const correctOption = scenario.options.find(opt => opt.isCorrect);
         setResult({
@@ -171,7 +350,8 @@ const BattleArena = ({ onExit }) => {
           await statsAPI.updateStats({
             game: 'thoughtbattle',
             win: true,
-            xp: 20
+            xp: 20,
+            badges: useGameStore.getState().badges
           });
         } catch (error) {
           console.error('Failed to update stats:', error);
@@ -194,7 +374,8 @@ const BattleArena = ({ onExit }) => {
           await statsAPI.updateStats({
             game: 'thoughtbattle',
             win: false,
-            xp: 5
+            xp: 5,
+            badges: useGameStore.getState().badges
           });
         } catch (error) {
           console.error('Failed to update stats:', error);
@@ -213,7 +394,7 @@ const BattleArena = ({ onExit }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-zinc-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
           <p className="text-white text-xl">Loading your progress...</p>
@@ -223,7 +404,7 @@ const BattleArena = ({ onExit }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-zinc-950 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(20)].map((_, i) => (
@@ -295,13 +476,32 @@ const BattleArena = ({ onExit }) => {
           </div>
         </div>
 
+        {/* AI Key Status Warning Banner */}
+        {scenario?.isFallback && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-2xl bg-amber-500/20 border border-amber-400/40 backdrop-blur-md flex items-center justify-between gap-3 text-amber-200 shadow-xl"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <p className="font-extrabold text-sm text-amber-300 tracking-wide uppercase">AI Offline Mode</p>
+                <p className="text-xs text-amber-200/90">{scenario?.aiNotice || "The AI API key is inactive or rate-limited. Playing curated offline scenario."}</p>
+              </div>
+            </div>
+            <span className="px-3 py-1 bg-amber-400/20 text-amber-300 text-xs font-bold rounded-full uppercase tracking-wider">Offline Mode</span>
+          </motion.div>
+        )}
+
         {/* Stats Bar */}
         <motion.div
-          className="bg-white/10 backdrop-blur-md rounded-2xl p-6 mb-6 border border-white/20"
+          className="bg-white/5 backdrop-blur-xl rounded-3xl p-6 mb-6 border border-white/10 shadow-2xl relative overflow-hidden"
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
         >
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 via-pink-500/5 to-indigo-500/5 pointer-events-none" />
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center relative z-10">
             {/* Level Badge */}
             <div className="flex items-center justify-center">
               <LevelBadge level={level} />
@@ -314,21 +514,64 @@ const BattleArena = ({ onExit }) => {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 md:col-span-2">
-              <div className="bg-gradient-to-br from-yellow-500/30 to-orange-500/30 rounded-xl p-3 text-center border border-yellow-400/30">
-                <Zap size={20} className="text-yellow-400 mx-auto mb-1" />
-                <p className="text-white font-bold text-lg">{streak}</p>
-                <p className="text-white/70 text-xs">Streak</p>
-              </div>
-              <div className="bg-gradient-to-br from-green-500/30 to-emerald-500/30 rounded-xl p-3 text-center border border-green-400/30">
-                <Target size={20} className="text-green-400 mx-auto mb-1" />
-                <p className="text-white font-bold text-lg">{victories}/{totalBattles}</p>
-                <p className="text-white/70 text-xs">Wins</p>
-              </div>
-              <div className="bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl p-3 text-center border border-purple-400/30">
-                <Award size={20} className="text-purple-400 mx-auto mb-1" />
-                <p className="text-white font-bold text-lg">{badges.length}</p>
-                <p className="text-white/70 text-xs">Badges</p>
-              </div>
+              {/* Streak Card */}
+              <motion.div 
+                className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center hover:bg-white/10 transition shadow-lg flex flex-col items-center justify-center"
+                whileHover={{ scale: 1.05, y: -2 }}
+              >
+                {/* 3D Noto Lightning Bolt */}
+                <svg viewBox="0 0 100 100" className="w-12 h-12 mb-2 drop-shadow-[0_4px_8px_rgba(251,191,36,0.4)]">
+                  <defs>
+                    <linearGradient id="boltGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#fef08a" />
+                      <stop offset="50%" stopColor="#fbbf24" />
+                      <stop offset="100%" stopColor="#d97706" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M 55 10 L 25 55 L 48 55 L 40 90 L 75 42 L 52 42 Z" fill="url(#boltGrad)" stroke="#fef08a" strokeWidth="2.5" />
+                </svg>
+                <p className="text-white font-black text-2xl tracking-wide">{streak}</p>
+                <p className="text-purple-300 font-bold text-xs uppercase tracking-wider">Streak</p>
+              </motion.div>
+
+              {/* Wins Card */}
+              <motion.div 
+                className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center hover:bg-white/10 transition shadow-lg flex flex-col items-center justify-center"
+                whileHover={{ scale: 1.05, y: -2 }}
+              >
+                {/* 3D Noto Target */}
+                <svg viewBox="0 0 100 100" className="w-12 h-12 mb-2 drop-shadow-[0_4px_8px_rgba(239,68,68,0.4)]">
+                  <circle cx="50" cy="50" r="40" fill="#ef4444" stroke="#fca5a5" strokeWidth="3" />
+                  <circle cx="50" cy="50" r="28" fill="#ffffff" />
+                  <circle cx="50" cy="50" r="16" fill="#ef4444" />
+                  <circle cx="50" cy="50" r="6" fill="#ffffff" />
+                  {/* Dart */}
+                  <path d="M 50 50 L 75 25 L 80 30 Z" fill="#10b981" />
+                </svg>
+                <p className="text-white font-black text-2xl tracking-wide">{victories}</p>
+                <p className="text-purple-300 font-bold text-xs uppercase tracking-wider">Wins</p>
+              </motion.div>
+
+              {/* Badges Card */}
+              <motion.div 
+                className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center hover:bg-white/10 transition shadow-lg flex flex-col items-center justify-center"
+                whileHover={{ scale: 1.05, y: -2 }}
+              >
+                {/* 3D Noto Badge */}
+                <svg viewBox="0 0 100 100" className="w-12 h-12 mb-2 drop-shadow-[0_4px_8px_rgba(168,85,247,0.4)]">
+                  <defs>
+                    <linearGradient id="badgeShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#c084fc" />
+                      <stop offset="100%" stopColor="#7e22ce" />
+                    </linearGradient>
+                  </defs>
+                  <polygon points="50,15 80,30 80,65 50,85 20,65 20,30" fill="url(#badgeShieldGrad)" stroke="#e9d5ff" strokeWidth="3" />
+                  <polygon points="50,22 73,34 73,61 50,77 27,61 27,34" fill="#ffffff" opacity="0.15" />
+                  <path d="M 50 32 L 53 41 L 62 42 L 55 48 L 57 57 L 50 52 L 43 57 L 45 48 L 38 42 L 47 41 Z" fill="#fbbf24" />
+                </svg>
+                <p className="text-white font-black text-2xl tracking-wide">{badges.length}</p>
+                <p className="text-purple-300 font-bold text-xs uppercase tracking-wider">Badges</p>
+              </motion.div>
             </div>
           </div>
         </motion.div>
@@ -337,11 +580,12 @@ const BattleArena = ({ onExit }) => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Enemy Side */}
           <motion.div
-            className="bg-gradient-to-br from-red-900/40 to-purple-900/40 backdrop-blur-md rounded-2xl p-8 border-2 border-red-500/30 min-h-[400px] flex flex-col items-center justify-center"
+            className="bg-gradient-to-br from-purple-950/60 via-slate-900/60 to-purple-950/60 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl min-h-[400px] flex flex-col items-center justify-center relative overflow-hidden"
             initial={{ x: -100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
           >
+            <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/5 to-transparent pointer-events-none" />
             <motion.div
               className="mb-4 text-center"
               initial={{ y: -20, opacity: 0 }}
@@ -371,9 +615,20 @@ const BattleArena = ({ onExit }) => {
             transition={{ delay: 0.3 }}
           >
             <div className="mb-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles size={20} className="text-blue-400" />
-                <span className="text-blue-300 font-semibold text-sm">SITUATION</span>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={20} className="text-blue-400" />
+                  <span className="text-blue-300 font-semibold text-sm">SITUATION</span>
+                </div>
+                <motion.button
+                  onClick={() => speakSituation(scenario.situation)}
+                  className="p-2 bg-blue-500/20 hover:bg-blue-500/40 rounded-lg text-blue-300 transition"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  title="Read Aloud"
+                >
+                  <Volume2 size={16} />
+                </motion.button>
               </div>
               <motion.p
                 className="text-white text-xl leading-relaxed pl-4 border-l-4 border-blue-500"
@@ -443,13 +698,12 @@ const BattleArena = ({ onExit }) => {
               {badges.map((badge, idx) => (
                 <motion.div
                   key={idx}
-                  className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-lg text-white font-semibold shadow-lg"
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ delay: idx * 0.1, type: "spring" }}
                   whileHover={{ scale: 1.05, y: -2 }}
                 >
-                  🏆 {badge}
+                  {renderBadgeIcon(badge)}
                 </motion.div>
               ))}
             </div>
@@ -467,6 +721,59 @@ const BattleArena = ({ onExit }) => {
       {/* Music Player Modal */}
       <AnimatePresence>
         {showMusicPlayer && <MusicPlayer onClose={() => setShowMusicPlayer(false)} />}
+      </AnimatePresence>
+
+      {/* Badge Unlock Popup */}
+      <AnimatePresence>
+        {unlockedBadge && (
+          <motion.div
+            className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[150] p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border-4 border-yellow-400 p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl relative overflow-hidden"
+              initial={{ scale: 0.8, rotate: -5 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0.8, rotate: 5 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/10 to-transparent pointer-events-none" />
+              
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 10, ease: "linear" }}
+                className="w-32 h-32 mx-auto mb-6 opacity-20 absolute top-10 left-1/2 -translate-x-1/2 pointer-events-none"
+              >
+                <svg viewBox="0 0 100 100" className="w-full h-full fill-yellow-400">
+                  <path d="M50 50 L40 0 L60 0 Z" />
+                  <path d="M50 50 L100 40 L100 60 Z" />
+                  <path d="M50 50 L40 100 L60 100 Z" />
+                  <path d="M50 50 L0 40 L0 60 Z" />
+                </svg>
+              </motion.div>
+
+              <div className="relative z-10 flex flex-col items-center justify-center">
+                <span className="text-5xl mb-4">🏆</span>
+                <h3 className="text-3xl font-black text-yellow-400 mb-2 tracking-wide">UNLOCKED!</h3>
+                <p className="text-white/80 text-sm mb-6">You earned a new Badge of Honor!</p>
+                
+                <div className="flex justify-center mb-6">
+                  {renderBadgeIcon(unlockedBadge)}
+                </div>
+
+                <motion.button
+                  onClick={() => setUnlockedBadge(null)}
+                  className="w-full py-3 bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 rounded-xl text-slate-950 font-black text-lg shadow-lg"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                >
+                  AWESOME!
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

@@ -7,20 +7,19 @@ import json
 
 # --- Helper Functions ---
 def get_or_create_stats(user_id):
-    redis_key = f"player_stats:{user_id}"
-    stats_json = redis_client.get(redis_key)
-    if stats_json:
-        # Load from Redis cache
-        stats_dict = json.loads(stats_json)
-        stats = PlayerStats._from_son(stats_dict)
-        return stats
-    # Fallback to MongoDB
     try:
         stats = PlayerStats.objects.get(user_id=user_id)
     except DoesNotExist:
-        stats = PlayerStats(user_id=user_id)
+        stats = PlayerStats(user_id=user_id, updated_at=datetime.utcnow())
         stats.save()
-    # Cache in Redis
+    
+    # Ensure updated_at is a valid datetime object, never a dict
+    if not isinstance(stats.updated_at, datetime):
+        stats.updated_at = datetime.utcnow()
+        stats.save()
+
+    # Cache clean JSON in Redis
+    redis_key = f"player_stats:{user_id}"
     redis_client.set(redis_key, stats.to_json())
     return stats
 
@@ -31,12 +30,21 @@ def recalculate_win_rate(stats):
     stats.global_stats['win_rate'] = round((v / total) * 100, 2) if total > 0 else 0.0
     return stats
 
-def update_game_result(user_id, game, is_win, xp_earned):
+def update_game_result(user_id, game, is_win, xp_earned, badges=None):
     stats = get_or_create_stats(user_id)
     # Debug log for game key
-    print(f"[PlayerStats] update_game_result: user_id={user_id}, game={game}, is_win={is_win}, xp_earned={xp_earned}")
+    print(f"[PlayerStats] update_game_result: user_id={user_id}, game={game}, is_win={is_win}, xp_earned={xp_earned}, badges={badges}")
     # Normalize game key to lowercase
     game_key = str(game).strip().lower()
+    
+    # Store unique string badges from frontend
+    if badges:
+        existing_badges = set(stats.badges or [])
+        for b in badges:
+            if isinstance(b, str) and b not in existing_badges:
+                stats.badges.append(b)
+                existing_badges.add(b)
+
     # Global stats
     if is_win:
         stats.global_stats['victories'] = stats.global_stats.get('victories', 0) + 1
@@ -75,6 +83,29 @@ def update_game_result(user_id, game, is_win, xp_earned):
     # Update Redis cache
     redis_key = f"player_stats:{user_id}"
     redis_client.set(redis_key, stats.to_json())
+
+    # Sync to UserGameProfile for leaderboard
+    try:
+        from app.models.user_models import User
+        from app.models.user_game_profile import UserGameProfile, GameScore
+        user = User.objects(id=user_id).first()
+        if user:
+            profile = UserGameProfile.objects(user=user).first()
+            if not profile:
+                profile = UserGameProfile(user=user)
+            # Sync global stats from PlayerStats to UserGameProfile
+            profile.level = stats.global_stats.get('level', 1)
+            profile.xp = stats.global_stats.get('xp', 0)
+            profile.total_score = stats.global_stats.get('victories', 0)
+            profile.badges = list(stats.badges or [])
+            profile.updated_at = datetime.utcnow()
+            profile.save()
+            # Also save a GameScore entry for the leaderboard history
+            score_val = xp_earned if is_win else 0
+            GameScore(user=user, game_name=game_key, score=score_val, xp_earned=xp_earned).save()
+    except Exception as e:
+        print(f"[PlayerStats] UserGameProfile sync error (non-fatal): {e}")
+
     return stats
 
 def add_achievement(stats, code, title, game=None):
@@ -87,14 +118,7 @@ def add_achievement(stats, code, title, game=None):
         })
         stats.save()
 
-def add_badge(stats, code, level):
-    if not any(b['code'] == code and b['level'] == level for b in stats.badges):
-        stats.badges.append({
-            'code': code,
-            'level': level,
-            'earned_at': datetime.utcnow()
-        })
-        stats.save()
+
 
 def check_and_unlock_achievements(stats):
     # Global achievements
@@ -113,8 +137,9 @@ def check_and_unlock_achievements(stats):
     for game_name, game_stats in stats.games.items():
         game_display_name = {
             'thoughtbattle': 'Thought Battle',
-            'lifequest': 'Life Quest',
-            'emotionquest': 'Emotion Quest'
+            'reframe': 'Sanctuary Suites',
+            'growingtree': 'The Growing Tree',
+            'growing-tree': 'The Growing Tree'
         }.get(game_name, game_name.title())
 
         # First win in specific game

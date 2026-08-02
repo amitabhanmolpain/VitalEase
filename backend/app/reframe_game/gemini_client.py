@@ -110,3 +110,135 @@ Respond to them in character as Mira:
     except Exception as e:
         print(f"[Gemini API Exception in Mira Response] Error: {e}")
         return "I understand. Take your time to look around, or step into one of the reflection rooms on the left to start reframing."
+
+class ScenarioOption(BaseModel):
+    text: str = Field(description="The response option text.")
+    isCorrect: bool = Field(description="True if this option is a constructive CBT cognitive reframe, False otherwise.")
+    feedback: str = Field(description="Helpful, specific feedback explaining why this is or isn't a good reframe.")
+
+class BattleScenario(BaseModel):
+    situation: str = Field(description="A realistic, relatable negative situation.")
+    negativeThought: str = Field(description="The negative, distorted thought associated with the situation.")
+    options: list[ScenarioOption] = Field(description="A list of exactly 4 options (1 correct, 3 incorrect).")
+    enemy: str = Field(description="The thought monster name. Must be one of: 'self-doubt-slime', 'anxiety-ghost', 'hopelessness-troll', 'doomsday-dragon'.")
+    difficulty: str = Field(description="The difficulty level. Must be one of: 'easy', 'medium', 'hard'.")
+
+def generate_battle_scenario(level: int) -> dict:
+    """
+    Generates a dynamic, level-appropriate CBT battle scenario using Gemini.
+    Difficulty level increases with player level:
+    - Level 1-2: Easy (Self-Doubt Slime or Anxiety Ghost)
+    - Level 3-4: Medium (Anxiety Ghost or Hopelessness Troll)
+    - Level 5+: Hard (Hopelessness Troll or Doomsday Dragon)
+    """
+    import random
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        sc = get_fallback_scenario(level)
+        sc["isFallback"] = True
+        sc["aiNotice"] = "Gemini API Key is missing. Playing offline scenario."
+        return sc
+
+    try:
+        # Determine difficulty and allowed monsters based on level
+        if level <= 2:
+            difficulty = "easy"
+            allowed_monsters = ["self-doubt-slime", "anxiety-ghost"]
+        elif level <= 4:
+            difficulty = "medium"
+            allowed_monsters = ["anxiety-ghost", "hopelessness-troll"]
+        else:
+            difficulty = "hard"
+            allowed_monsters = ["hopelessness-troll", "doomsday-dragon"]
+
+        chosen_monster = random.choice(allowed_monsters)
+        topics = [
+            "academic failure", "social rejection", "public speaking anxiety", 
+            "job/interview stress", "loneliness", "imposter syndrome", 
+            "relationship conflict", "health worry", "time management pressure",
+            "making a mistake in front of peers", "financial insecurity"
+        ]
+        chosen_topic = random.choice(topics)
+
+        client = genai.Client(api_key=api_key)
+
+        prompt = f"""
+You are an expert cognitive behavioral therapist (CBT) designing a Level {level} scenario for a thought reframing game.
+The player must defeat a "Thought Monster" representing a cognitive distortion.
+
+Generate a scenario with the following specifications:
+- Difficulty: {difficulty}
+- Selected Monster: {chosen_monster}
+- Chosen Focus Topic: {chosen_topic}
+
+The scenario MUST contain:
+1. A realistic, short, relatable situation specifically about the topic '{chosen_topic}'.
+2. A negative thought expressing a cognitive distortion that fits the monster '{chosen_monster}'.
+3. Exactly 4 options:
+   - Exactly ONE option must be a constructive, logical CBT cognitive reframe (marked as isCorrect: true, with encouraging feedback).
+   - The other THREE options must be unconstructive/distortion-reinforcing choices (marked as isCorrect: false, with supportive corrective feedback explaining the cognitive distortion trap).
+
+Ensure your response conforms strictly to the requested schema. Make the situation and options highly specific to the topic.
+"""
+
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=BattleScenario,
+                temperature=0.9,
+            )
+        )
+
+        res_data = json.loads(response.text)
+        res_data["isFallback"] = False
+        return res_data
+
+    except Exception as e:
+        print(f"[Gemini Scenario Exception] Falling back to static scenario. Error: {e}")
+        sc = get_fallback_scenario(level)
+        sc["isFallback"] = True
+        sc["aiNotice"] = f"AI API Key error/quota exceeded: {str(e)[:80]}. Playing offline scenario."
+        return sc
+
+def get_fallback_scenario(level: int) -> dict:
+    if level <= 2:
+        return {
+            "situation": "My friend didn't reply to my message.",
+            "negativeThought": "They must hate me.",
+            "options": [
+                {"text": "Maybe they are just busy.", "isCorrect": True, "feedback": "Excellent! Lack of reply doesn't automatically mean rejection."},
+                {"text": "No one likes me.", "isCorrect": False, "feedback": "This is overgeneralization based on one event."},
+                {"text": "I should never text anyone.", "isCorrect": False, "feedback": "This promotes isolation and avoidance."},
+                {"text": "I always annoy people.", "isCorrect": False, "feedback": "This is negative labeling without evidence."}
+            ],
+            "enemy": "self-doubt-slime",
+            "difficulty": "easy"
+        }
+    elif level <= 4:
+        return {
+            "situation": "I got critical feedback from my boss.",
+            "negativeThought": "I'm going to get fired.",
+            "options": [
+                {"text": "Feedback helps me learn and improve.", "isCorrect": True, "feedback": "Perfect! Constructive feedback is a tool for growth."},
+                {"text": "I can't do anything right.", "isCorrect": False, "feedback": "This is all-or-nothing thinking based on one review."},
+                {"text": "My boss hates me.", "isCorrect": False, "feedback": "This is mind-reading without objective evidence."},
+                {"text": "I should start looking for another job immediately.", "isCorrect": False, "feedback": "This is catastrophizing the situation."}
+            ],
+            "enemy": "anxiety-ghost",
+            "difficulty": "medium"
+        }
+    else:
+        return {
+            "situation": "A long-term project I worked on failed.",
+            "negativeThought": "I'm completely incompetent and will never achieve anything.",
+            "options": [
+                {"text": "This project failed, but I learned valuable lessons for the next one.", "isCorrect": True, "feedback": "Outstanding! Separating your self-worth from a single outcome is key to resilience."},
+                {"text": "I'm a failure.", "isCorrect": False, "feedback": "This is personalizing a complex project failure."},
+                {"text": "Everything I do is a waste of time.", "isCorrect": False, "feedback": "This is overgeneralizing from one failure."},
+                {"text": "I should give up my career goals.", "isCorrect": False, "feedback": "This is catastrophizing and fortune-telling."}
+            ],
+            "enemy": "doomsday-dragon",
+            "difficulty": "hard"
+        }

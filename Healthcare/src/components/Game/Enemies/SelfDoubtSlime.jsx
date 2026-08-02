@@ -3,76 +3,104 @@ import { motion } from 'framer-motion';
 const SelfDoubtSlime = ({ isHit, isDefeated }) => {
   return (
     <motion.div
-      className="relative w-48 h-48"
+      className="relative w-48 h-48 flex items-center justify-center"
       initial={{ scale: 0, opacity: 0 }}
       animate={{
         scale: isDefeated ? 0 : isHit ? 0.9 : 1,
         opacity: isDefeated ? 0 : 1,
-        y: isHit ? -10 : [0, -15, 0],
-        rotate: isHit ? [0, -8, 8, -8, 0] : 0
+        y: isHit ? -15 : [0, -12, 0],
+        rotate: isHit ? [0, -10, 10, -10, 10, 0] : 0
       }}
       transition={{
-        y: { repeat: isHit ? 0 : Infinity, duration: 2.5, ease: "easeInOut" },
+        y: { repeat: isHit ? 0 : Infinity, duration: 3, ease: "easeInOut" },
         rotate: { duration: 0.5 },
         scale: { duration: isDefeated ? 0.5 : 0.3 },
         opacity: { duration: isDefeated ? 0.5 : 0.3 }
       }}
     >
-      <svg viewBox="0 0 200 200" className="w-full h-full">
+      {/* Outer Glowing Aura */}
+      <div className="absolute inset-2 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full filter blur-2xl opacity-40 animate-pulse" />
+
+      <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-[0_10px_15px_rgba(16,185,129,0.3)]">
         <defs>
-          <linearGradient id="slimeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          {/* Main Body Gradient */}
+          <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#14b8a6" />
+            <stop offset="50%" stopColor="#059669" />
+            <stop offset="100%" stopColor="#047857" />
           </linearGradient>
-          <filter id="slimeGlow">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
+          
+          {/* Highlight Gradient for Glassy Look */}
+          <linearGradient id="highlightGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </linearGradient>
+
+          {/* Cheeks Gradient */}
+          <radialGradient id="cheekGrad">
+            <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.6" />
+            <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
+          </radialGradient>
         </defs>
-        
-        {/* Main body - blob shape */}
-        <ellipse cx="100" cy="120" rx="60" ry="50" fill="url(#slimeGradient)" filter="url(#slimeGlow)" opacity="0.9" />
-        
-        {/* Upper blob */}
-        <ellipse cx="100" cy="80" rx="50" ry="40" fill="url(#slimeGradient)" filter="url(#slimeGlow)" opacity="0.8" />
-        
-        {/* Eyes */}
-        <ellipse cx="85" cy="75" rx="8" ry="12" fill="#065f46" />
-        <ellipse cx="115" cy="75" rx="8" ry="12" fill="#065f46" />
-        
-        {/* Eye highlights */}
-        <circle cx="87" cy="72" r="3" fill={isHit ? "#fbbf24" : "#d1fae5"} />
-        <circle cx="117" cy="72" r="3" fill={isHit ? "#fbbf24" : "#d1fae5"} />
-        
-        {/* Mouth - wavy sad line */}
-        <path d="M 85 95 Q 100 90 115 95" stroke="#065f46" strokeWidth="2" fill="none" />
-        
-        {/* Drips */}
-        <ellipse cx="70" cy="145" rx="8" ry="12" fill="url(#slimeGradient)" opacity="0.7" />
-        <ellipse cx="100" cy="155" rx="6" ry="10" fill="url(#slimeGradient)" opacity="0.7" />
-        <ellipse cx="130" cy="145" rx="8" ry="12" fill="url(#slimeGradient)" opacity="0.7" />
+
+        {/* Shadow Underneath Slime */}
+        <ellipse cx="100" cy="175" rx="50" ry="10" fill="#022c22" opacity="0.4" />
+
+        {/* Main Fluid Body - Static Path to prevent morph errors */}
+        <path
+          d="M 100 40 C 145 40, 165 70, 165 110 C 165 140, 145 160, 100 160 C 55 160, 35 140, 35 110 C 35 70, 55 40, 100 40 Z"
+          fill="url(#bodyGrad)"
+        />
+
+        {/* 3D Highlight Curve */}
+        <path
+          d="M 60 70 C 80 55, 120 55, 140 70 C 120 60, 80 60, 60 70 Z"
+          fill="url(#highlightGrad)"
+        />
+
+        {/* Blushing Cheeks */}
+        <circle cx="65" cy="115" r="12" fill="url(#cheekGrad)" />
+        <circle cx="135" cy="115" r="12" fill="url(#cheekGrad)" />
+
+        {/* Large Eyes */}
+        <g>
+          {/* Left Eye */}
+          <circle cx="75" cy="100" r="12" fill="#042f1a" />
+          <circle cx="78" cy="96" r="5" fill="#ffffff" />
+          {isHit && <path d="M 68 88 L 82 94 M 68 94 L 82 88" stroke="#ffffff" strokeWidth="2.5" />}
+
+          {/* Right Eye */}
+          <circle cx="125" cy="100" r="12" fill="#042f1a" />
+          <circle cx="128" cy="96" r="5" fill="#ffffff" />
+          {isHit && <path d="M 118 88 L 132 94 M 118 94 L 132 88" stroke="#ffffff" strokeWidth="2.5" />}
+        </g>
+
+        {/* Sad / Worry Mouth */}
+        <path
+          d={isHit ? "M 92 125 Q 100 135 108 125" : "M 90 128 Q 100 118 110 128"}
+          stroke="#042f1a"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          fill="none"
+        />
+
+        {/* Floating Crown / Antlers */}
+        <path
+          d="M 85 28 L 92 35 L 100 24 L 108 35 L 115 28 L 108 40 L 92 40 Z"
+          fill="#fbbf24"
+          opacity="0.8"
+        />
       </svg>
-      
+
+      {/* Title Tag */}
       <motion.div
-        className="absolute inset-0 rounded-full bg-green-500/20 blur-xl"
-        animate={{
-          scale: isHit ? [1, 1.5, 1] : [1, 1.3, 1],
-          opacity: isHit ? [0.5, 0.8, 0.5] : [0.3, 0.6, 0.3]
-        }}
-        transition={{ repeat: Infinity, duration: 2.5 }}
-      />
-      
-      <motion.div
-        className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap"
+        className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap z-10"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <div className="bg-green-900/80 backdrop-blur-md px-4 py-1 rounded-full border border-green-500/50">
-          <span className="text-white font-bold text-sm">Self-Doubt Slime</span>
+        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 backdrop-blur-md px-4 py-1.5 rounded-full border border-emerald-400/50 shadow-lg">
+          <span className="text-white font-bold text-sm tracking-wide">Self-Doubt Slime</span>
         </div>
       </motion.div>
     </motion.div>

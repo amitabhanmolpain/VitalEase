@@ -22,6 +22,96 @@ def get_distortion_types():
     """
     return jsonify(DISTORTION_TYPES), 200
 
+@reframe_game_bp.route('/generate-scenario', methods=['POST'])
+def generate_scenario_route():
+    from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+    from app.models.question_models import GeneratedQuestion, UserQuestionHistory
+    from datetime import datetime
+
+    data = request.get_json() or {}
+    level = int(data.get("level", 1))
+
+    # Try to get user_id for history tracking (optional - works without auth too)
+    user_id = None
+    try:
+        verify_jwt_in_request(optional=True)
+        user_id = get_jwt_identity()
+    except Exception:
+        pass
+
+    try:
+        # Step 1: Get user's seen question IDs
+        seen_ids = []
+        if user_id:
+            history = UserQuestionHistory.objects(user_id=user_id).first()
+            if history:
+                seen_ids = history.seen_question_ids or []
+
+        # Step 2: Try to find an unseen question from the bank for this level
+        unseen_question = None
+        from bson import ObjectId as BsonObjectId
+        if seen_ids:
+            # Convert string IDs to ObjectIds for proper MongoDB query
+            seen_oids = []
+            for sid in seen_ids:
+                try:
+                    seen_oids.append(BsonObjectId(sid))
+                except Exception:
+                    pass
+            # Get all unseen questions for this level, pick a random one
+            unseen_questions = list(GeneratedQuestion.objects(
+                level=level,
+                id__nin=seen_oids
+            ))
+        else:
+            unseen_questions = list(GeneratedQuestion.objects(level=level))
+
+        if unseen_questions:
+            import random
+            unseen_question = random.choice(unseen_questions)
+            # Mark as seen
+            if user_id:
+                UserQuestionHistory.objects(user_id=user_id).update_one(
+                    push__seen_question_ids=str(unseen_question.id),
+                    set__updated_at=datetime.utcnow(),
+                    upsert=True
+                )
+            return jsonify(unseen_question.scenario_data), 200
+
+        # Step 3: No unseen questions in bank — generate a new one via AI
+        from .gemini_client import generate_battle_scenario
+        scenario = generate_battle_scenario(level)
+
+        # Step 4: Store the generated question in MongoDB
+        try:
+            new_q = GeneratedQuestion(
+                level=level,
+                difficulty=scenario.get('difficulty', 'easy'),
+                enemy=scenario.get('enemy', 'self-doubt-slime'),
+                topic=scenario.get('situation', '')[:200],
+                scenario_data=scenario
+            )
+            new_q.save()
+
+            # Mark as seen for this user
+            if user_id:
+                UserQuestionHistory.objects(user_id=user_id).update_one(
+                    push__seen_question_ids=str(new_q.id),
+                    set__updated_at=datetime.utcnow(),
+                    upsert=True
+                )
+        except Exception as store_err:
+            print(f"[Question Store Error] Non-fatal: {store_err}")
+
+        return jsonify(scenario), 200
+
+    except Exception as e:
+        print(f"[Generate Scenario Error] {e}")
+        return jsonify({
+            "error": "Failed to generate scenario",
+            "message": str(e)
+        }), 502
+
 @reframe_game_bp.route('/judge-reframe', methods=['POST'])
 def judge_reframe():
     """

@@ -13,7 +13,7 @@ class PlayerStats(Document):
     })
     games = DictField(default=dict)  # {game_name: {level, xp, victories, losses, current_streak}}
     achievements = ListField(DictField())  # [{code, title, game, earned_at}]
-    badges = ListField(DictField())        # [{code, level, earned_at}]
+    badges = ListField(StringField(), default=list)
     updated_at = DateTimeField(default=datetime.utcnow)
 
     meta = {
