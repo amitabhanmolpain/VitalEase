@@ -310,7 +310,7 @@ const GrowingTreeGame = ({ onExit }) => {
             <img
               src={displayedImg}
               alt={stage.label}
-              className={`w-72 h-72 md:w-80 md:h-80 object-contain drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] ${imgFading ? "img-fade-out" : "img-fade-in"} ${growing ? "tree-growing" : ""}`}
+              className={`w-[420px] h-[420px] md:w-[480px] md:h-[480px] object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.8)] ${imgFading ? "img-fade-out" : "img-fade-in"} ${growing ? "tree-growing" : ""}`}
             />
 
             {/* Ground glow */}
