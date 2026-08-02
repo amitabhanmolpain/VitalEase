@@ -174,21 +174,14 @@ const GrowingTreeGame = ({ onExit }) => {
         }
       `}</style>
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-4 bg-black/30 backdrop-blur-sm border-b border-white/10">
-        <button
-          onClick={onExit}
-          className="flex items-center gap-2 text-white/70 hover:text-white transition group"
-        >
-          <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-          <span className="text-sm font-medium">Back</span>
-        </button>
-        <h1 className="text-white font-extrabold text-xl tracking-widest flex items-center gap-2">
-          <Leaf className="text-emerald-400 animate-pulse" size={22} />
-          THE GROWING TREE
-        </h1>
-        <div className="w-24" />
-      </header>
+      {/* Floating back button — no navbar */}
+      <button
+        onClick={onExit}
+        className="absolute top-5 left-5 z-20 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10 text-white/60 hover:text-white hover:bg-black/50 transition-all duration-200 group text-sm font-medium"
+      >
+        <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+        Back
+      </button>
 
       {/* Main layout */}
       <main className="relative z-10 flex-1 flex flex-col md:flex-row items-center justify-center gap-8 px-6 py-8 max-w-6xl mx-auto w-full">
