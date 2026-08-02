@@ -84,6 +84,29 @@ def update_game_result(user_id, game, is_win, xp_earned, badges=None):
     # Update Redis cache
     redis_key = f"player_stats:{user_id}"
     redis_client.set(redis_key, stats.to_json())
+
+    # Sync to UserGameProfile for leaderboard
+    try:
+        from app.models.user_models import User
+        from app.models.user_game_profile import UserGameProfile, GameScore
+        user = User.objects(id=user_id).first()
+        if user:
+            profile = UserGameProfile.objects(user=user).first()
+            if not profile:
+                profile = UserGameProfile(user=user)
+            # Sync global stats from PlayerStats to UserGameProfile
+            profile.level = stats.global_stats.get('level', 1)
+            profile.xp = stats.global_stats.get('xp', 0)
+            profile.total_score = stats.global_stats.get('victories', 0)
+            profile.badges = list(stats.badges or [])
+            profile.updated_at = datetime.utcnow()
+            profile.save()
+            # Also save a GameScore entry for the leaderboard history
+            score_val = xp_earned if is_win else 0
+            GameScore(user=user, game_name=game_key, score=score_val, xp_earned=xp_earned).save()
+    except Exception as e:
+        print(f"[PlayerStats] UserGameProfile sync error (non-fatal): {e}")
+
     return stats
 
 def add_achievement(stats, code, title, game=None):
