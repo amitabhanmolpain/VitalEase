@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { statsAPI } from '../services/statsApi';
+import apiClient from '../services/api';
 
 const useGameStore = create((set, get) => ({
   // Player Stats
@@ -669,11 +670,27 @@ const useGameStore = create((set, get) => ({
     lastResult: result 
   }),
   
-  nextScenario: () => set((state) => ({
-    currentScenario: (state.currentScenario + 1) % state.scenarios.length,
-    showResult: false,
-    lastResult: null
-  })),
+  loadScenario: async () => {
+    try {
+      set({ loading: true });
+      const currentLevel = get().level;
+      const response = await apiClient.post('/reframe-game/generate-scenario', { level: currentLevel });
+      const scenario = response.data;
+      set({
+        scenarios: [scenario],
+        currentScenario: 0,
+        loading: false
+      });
+    } catch (error) {
+      console.error("Failed to load dynamic scenario:", error);
+      set({ loading: false });
+    }
+  },
+
+  nextScenario: async () => {
+    set({ showResult: false, lastResult: null });
+    await get().loadScenario();
+  },
   
   startGame: async () => {
     try {
@@ -695,9 +712,10 @@ const useGameStore = create((set, get) => ({
         streak: gameStats.current_streak || 0,
         highestStreak: Math.max(get().highestStreak, gameStats.current_streak || 0),
         badges: stats.badges || [],
-        isPlaying: true,
-        loading: false
+        isPlaying: true
       });
+
+      await get().loadScenario();
     } catch (error) {
       console.error('Failed to load game stats:', error);
       set({ 
@@ -717,19 +735,29 @@ const useGameStore = create((set, get) => ({
     soundEnabled: !state.soundEnabled 
   })),
   
-  resetGame: () => set({
-    xp: 0,
-    level: 1,
-    totalBattles: 0,
-    victories: 0,
-    streak: 0,
-    highestStreak: 0,
-    badges: [],
-    currentScenario: 0,
-    isPlaying: false,
-    showResult: false,
-    lastResult: null
-  })
+  resetGame: async () => {
+    try {
+      set({ loading: true });
+      await statsAPI.resetGameStats('thoughtbattle');
+      set({
+        xp: 0,
+        level: 1,
+        totalBattles: 0,
+        victories: 0,
+        streak: 0,
+        highestStreak: 0,
+        badges: [],
+        currentScenario: 0,
+        isPlaying: false,
+        showResult: false,
+        lastResult: null
+      });
+      await get().loadScenario();
+    } catch (error) {
+      console.error("Failed to reset game:", error);
+      set({ loading: false });
+    }
+  }
 }));
 
 export default useGameStore;

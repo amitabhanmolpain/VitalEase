@@ -35,4 +35,8 @@ export const statsAPI = {
     const response = await apiClient.get('/stats/badges');
     return response.data;
   },
+  async resetGameStats(game) {
+    const response = await apiClient.post('/stats/reset-game', { game });
+    return response.data;
+  }
 };

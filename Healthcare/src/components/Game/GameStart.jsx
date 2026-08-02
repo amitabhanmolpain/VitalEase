@@ -53,6 +53,28 @@ const GameStart = ({ onStart, onExit }) => {
           <Music size={24} />
           <span className="font-semibold">🎵 Play Music</span>
         </motion.button>
+
+        {/* Reset Level Button */}
+        <motion.button
+          onClick={async () => {
+            import('../EmotionQuest/soundManager').then(m => m.default.playClick());
+            if (window.confirm("Are you sure you want to reset your Thought Battle progress back to Level 1?")) {
+              const gameStore = (await import('../../store/gameStore')).default;
+              await gameStore.getState().resetGame();
+              alert("Your stats have been successfully reset to Level 1!");
+            }
+          }}
+          className="p-3 bg-gradient-to-r from-gray-700 to-slate-800 backdrop-blur-md rounded-xl text-white hover:from-gray-800 hover:to-slate-900 transition border border-white/20 flex items-center gap-2"
+          initial={{ x: 100, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title="Reset Game to Level 1"
+          onMouseEnter={() => import('../EmotionQuest/soundManager').then(m => m.default.playHover())}
+        >
+          <span className="font-semibold">🔄 Reset Level</span>
+        </motion.button>
       </div>
       
       {/* Animated Background */}

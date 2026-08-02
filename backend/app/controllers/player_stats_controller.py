@@ -65,3 +65,44 @@ def get_badges():
     user_id = get_jwt_identity()
     stats = get_or_create_stats(user_id)
     return jsonify(stats.badges), 200
+
+@player_stats_bp.route('/api/stats/reset-game', methods=['POST'])
+@jwt_required()
+def reset_game_stats():
+    from datetime import datetime
+    user_id = get_jwt_identity()
+    data = request.get_json() or {}
+    game = data.get('game')
+    if not game:
+        return jsonify({'error': 'Missing game parameter'}), 400
+
+    game_key = str(game).strip().lower()
+    stats = get_or_create_stats(user_id)
+
+    # Reset specific game stats
+    stats.games[game_key] = {
+        'level': 1, 'xp': 0, 'victories': 0, 'losses': 0, 'current_streak': 0
+    }
+
+    # Reset global stats too
+    stats.global_stats['level'] = 1
+    stats.global_stats['xp'] = 0
+    stats.global_stats['victories'] = 0
+    stats.global_stats['losses'] = 0
+    stats.global_stats['current_streak'] = 0
+    stats.global_stats['win_rate'] = 0.0
+
+    stats.updated_at = datetime.utcnow()
+    stats.save()
+
+    # Update Redis cache
+    from app.services.redis_service import redis_client
+    redis_key = f"player_stats:{user_id}"
+    redis_client.set(redis_key, stats.to_json())
+
+    data_dict = stats.to_mongo().to_dict()
+    if '_id' in data_dict:
+        data_dict['_id'] = str(data_dict['_id'])
+    if 'user_id' in data_dict:
+        data_dict['user_id'] = str(data_dict['user_id'])
+    return jsonify(data_dict), 200

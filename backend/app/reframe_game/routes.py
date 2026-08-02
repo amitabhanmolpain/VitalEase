@@ -22,6 +22,21 @@ def get_distortion_types():
     """
     return jsonify(DISTORTION_TYPES), 200
 
+@reframe_game_bp.route('/generate-scenario', methods=['POST'])
+def generate_scenario_route():
+    data = request.get_json() or {}
+    level = int(data.get("level", 1))
+    try:
+        from .gemini_client import generate_battle_scenario
+        scenario = generate_battle_scenario(level)
+        return jsonify(scenario), 200
+    except Exception as e:
+        print(f"[Generate Scenario Error] {e}")
+        return jsonify({
+            "error": "Failed to generate scenario",
+            "message": str(e)
+        }), 502
+
 @reframe_game_bp.route('/judge-reframe', methods=['POST'])
 def judge_reframe():
     """
