@@ -43,7 +43,8 @@ def call_groq_api(prompt: str, json_schema: dict = None) -> str:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={
         "Authorization": f"Bearer {groq_key}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     })
 
     with urllib.request.urlopen(req, timeout=10) as response:
@@ -52,8 +53,8 @@ def call_groq_api(prompt: str, json_schema: dict = None) -> str:
 
 def evaluate_reframe(distortion_type: str, monster_statement: str, player_reframe: str) -> dict:
     """
-    Evaluates the player's reframe of a cognitive distortion.
-    Tries Gemini API first. If Gemini fails or quota is exhausted, falls back to Groq API using GROQ_API_KEY.
+    Evaluates the player's reframe of a cognitive distortion using Groq API (llama-3.3-70b-versatile).
+    Falls back to Gemini API or local rules if needed.
     """
     prompt = f"""
 You are an expert cognitive behavioral therapist (CBT) judging a player's response in a thought reframing game.
@@ -73,12 +74,23 @@ Respond strictly in valid JSON with this exact structure:
   "monster_response": "one short in-character reaction line from the thought monster"
 }}
 """
+    # Primary: Try Groq API
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        try:
+            print("[Groq API] Calling Groq API via GROQ_API_KEY...")
+            raw_res = call_groq_api(prompt, json_schema=True)
+            return json.loads(raw_res)
+        except Exception as groq_err:
+            print(f"[Groq API Exception] Trying Gemini fallback... Error: {groq_err}")
+
+    # Fallback to Gemini API
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         try:
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.0-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -88,23 +100,13 @@ Respond strictly in valid JSON with this exact structure:
             )
             return json.loads(response.text)
         except Exception as e:
-            print(f"[Gemini API Failure] Trying GROQ_API_KEY fallback... Error: {e}")
-
-    # Fallback to Groq API
-    groq_key = os.environ.get("GROQ_API_KEY")
-    if groq_key:
-        try:
-            print("[Groq API] Calling Groq API via GROQ_API_KEY...")
-            raw_res = call_groq_api(prompt, json_schema=True)
-            return json.loads(raw_res)
-        except Exception as groq_err:
-            print(f"[Groq API Exception] Error: {groq_err}")
+            print(f"[Gemini API Failure] Error: {e}")
 
     return get_fallback_evaluation(player_reframe)
 
 def generate_receptionist_response(player_statement: str) -> str:
     """
-    Generates a warm, in-character response from Mira the receptionist using Gemini or Groq API.
+    Generates a warm, in-character response from Mira the receptionist using Groq API.
     """
     prompt = f"""
 You are Mira, the warm and welcoming receptionist of the Reframe Castle.
@@ -116,19 +118,7 @@ Respond to them in character as Mira:
 - Do not be clinical, diagnostic, or preachy.
 - Direct them gently to explore the lobby, meet the monk in the temple, or enter one of the reflection suites on the left to begin reframing their thoughts.
 """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if api_key:
-        try:
-            client = genai.Client(api_key=api_key)
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt,
-            )
-            return response.text.strip()
-        except Exception as e:
-            print(f"[Gemini API Failure in Mira Response] Trying GROQ_API_KEY... Error: {e}")
-
-    # Fallback to Groq API
+    # Primary: Try Groq API
     groq_key = os.environ.get("GROQ_API_KEY")
     if groq_key:
         try:
@@ -136,6 +126,18 @@ Respond to them in character as Mira:
             return call_groq_api(prompt).strip()
         except Exception as groq_err:
             print(f"[Groq API Exception in Mira Response] Error: {groq_err}")
+
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt,
+            )
+            return response.text.strip()
+        except Exception as e:
+            print(f"[Gemini API Failure in Mira Response] Error: {e}")
 
     return "I understand. Take your time to look around, or step into one of the reflection rooms on the left to start reframing."
 
@@ -153,7 +155,7 @@ class BattleScenario(BaseModel):
 
 def generate_battle_scenario(level: int) -> dict:
     """
-    Generates a dynamic, level-appropriate CBT battle scenario using Gemini API, falling back to Groq API if Gemini fails.
+    Generates a dynamic, level-appropriate CBT battle scenario using Groq API (llama-3.3-70b-versatile).
     """
     import random
     if level <= 2:
@@ -199,12 +201,24 @@ Respond strictly in valid JSON matching this exact structure:
 }}
 """
 
+    # Primary: Try Groq API
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        try:
+            print("[Groq API] Generating battle scenario via GROQ_API_KEY...")
+            raw_res = call_groq_api(prompt, json_schema=True)
+            res_data = json.loads(raw_res)
+            res_data["isFallback"] = False
+            return res_data
+        except Exception as groq_err:
+            print(f"[Groq Scenario Exception] Error: {groq_err}")
+
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
         try:
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.0-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -216,19 +230,7 @@ Respond strictly in valid JSON matching this exact structure:
             res_data["isFallback"] = False
             return res_data
         except Exception as e:
-            print(f"[Gemini Scenario Exception] Trying GROQ_API_KEY fallback... Error: {e}")
-
-    # Fallback to Groq API
-    groq_key = os.environ.get("GROQ_API_KEY")
-    if groq_key:
-        try:
-            print("[Groq API] Generating battle scenario via GROQ_API_KEY...")
-            raw_res = call_groq_api(prompt, json_schema=True)
-            res_data = json.loads(raw_res)
-            res_data["isFallback"] = False
-            return res_data
-        except Exception as groq_err:
-            print(f"[Groq Scenario Exception] Error: {groq_err}")
+            print(f"[Gemini Scenario Exception] Error: {e}")
 
     # Local fallback
     sc = get_fallback_scenario(level)
