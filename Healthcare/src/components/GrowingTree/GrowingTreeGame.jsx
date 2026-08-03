@@ -23,15 +23,54 @@ const playGrowthSound = () => {
     play(659, 0.12, 0.4, "triangle", 0.12);
     play(784, 0.24, 0.5, "triangle", 0.14);
     play(988, 0.36, 0.6, "triangle", 0.13);
+    play(1046, 0.48, 0.7, "sine",     0.15);
     // Sub‑bass thump for "weight of growth"
     play(80,  0,    0.3, "sine",     0.08);
+  } catch (_) {}
+};
+
+const playStageUpSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.09);
+      g.gain.setValueAtTime(0, ctx.currentTime + idx * 0.09);
+      g.gain.linearRampToValueAtTime(0.18, ctx.currentTime + idx * 0.09 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.09 + 0.5);
+      osc.start(ctx.currentTime + idx * 0.09);
+      osc.stop(ctx.currentTime + idx * 0.09 + 0.55);
+    });
+  } catch (_) {}
+};
+
+const playTaskGeneratedSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [440, 554.37, 659.25, 880, 1108.73];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.07);
+      g.gain.setValueAtTime(0, ctx.currentTime + i * 0.07);
+      g.gain.linearRampToValueAtTime(0.14, ctx.currentTime + i * 0.07 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.07 + 0.35);
+      osc.start(ctx.currentTime + i * 0.07);
+      osc.stop(ctx.currentTime + i * 0.07 + 0.4);
+    });
   } catch (_) {}
 };
 
 const playCompleteSound = () => {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const play = (freq, start, dur, gain = 0.12) => {
+    const play = (freq, start, dur, gain = 0.14) => {
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
       osc.connect(g); g.connect(ctx.destination);
@@ -42,7 +81,58 @@ const playCompleteSound = () => {
       osc.start(ctx.currentTime + start);
       osc.stop(ctx.currentTime + start + dur + 0.05);
     };
-    play(440, 0, 0.2); play(554, 0.1, 0.2); play(659, 0.2, 0.3);
+    play(523.25, 0, 0.2); play(659.25, 0.09, 0.22); play(783.99, 0.18, 0.32);
+  } catch (_) {}
+};
+
+const playWaterDropSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(650, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1450, ctx.currentTime + 0.08);
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.09);
+  } catch (_) {}
+};
+
+const playWoodClickSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(340, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.04);
+    g.gain.setValueAtTime(0.12, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.05);
+  } catch (_) {}
+};
+
+const playResetSound = () => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [659.25, 554.37, 440, 329.63];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.06);
+      g.gain.setValueAtTime(0, ctx.currentTime + i * 0.06);
+      g.gain.linearRampToValueAtTime(0.08, ctx.currentTime + i * 0.06 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.06 + 0.25);
+      osc.start(ctx.currentTime + i * 0.06);
+      osc.stop(ctx.currentTime + i * 0.06 + 0.3);
+    });
   } catch (_) {}
 };
 
@@ -60,7 +150,6 @@ const playMicStartSound = () => {
       osc.start(ctx.currentTime + start);
       osc.stop(ctx.currentTime + start + dur + 0.05);
     };
-    // Quick double beep (high pitch)
     play(880, 0, 0.08);
     play(1046, 0.08, 0.12);
   } catch (_) {}
@@ -80,7 +169,6 @@ const playMicSuccessSound = () => {
       osc.start(ctx.currentTime + start);
       osc.stop(ctx.currentTime + start + dur + 0.05);
     };
-    // Upward warm chime
     play(523, 0, 0.15);
     play(659, 0.08, 0.15);
     play(784, 0.16, 0.25);
@@ -178,8 +266,11 @@ const GrowingTreeGame = ({ onExit }) => {
   useEffect(() => {
     const stage = getStage(treeState.tree_growth || 0);
     if (stage.index !== prevStageRef.current) {
-      // Stage changed — crossfade
+      // Stage changed — crossfade and play fanfare
       setImgFading(true);
+      if (stage.index > prevStageRef.current) {
+        playStageUpSound();
+      }
       setTimeout(() => {
         setDisplayedImg(stage.img);
         setImgFading(false);
@@ -216,6 +307,7 @@ const GrowingTreeGame = ({ onExit }) => {
     e.preventDefault();
     if (!statementInput.trim()) return;
     try {
+      playWoodClickSound();
       setSubmitting(true);
       setApiError("");
       setStreamingText("");
@@ -237,6 +329,7 @@ const GrowingTreeGame = ({ onExit }) => {
             } else {
               const tasks = (data.tasks || []).map(t => ({ ...t, completed: t.completed || false }));
               setTreeState(prev => ({ ...prev, tasks, acknowledgment: data.acknowledgment || "", needs_human_support: false, support_message: "" }));
+              playTaskGeneratedSound();
             }
             setStatementInput("");
             setIsNewThreadMode(false);
@@ -322,7 +415,8 @@ const GrowingTreeGame = ({ onExit }) => {
   const handleCompleteTask = async (taskId) => {
     const task = treeState.tasks.find(t => t.id === taskId);
     const taskSize = task ? (task.size || 1) : 1;
-    playCompleteSound();
+    playWaterDropSound();
+    setTimeout(() => playCompleteSound(), 80);
     try {
       setCompletingTaskId(taskId);
       const data = await growingTreeAPI.completeTask(taskId, taskSize);
@@ -352,6 +446,7 @@ const GrowingTreeGame = ({ onExit }) => {
   };
 
   const handleResetTasks = () => {
+    playResetSound();
     setTreeState(prev => ({ ...prev, tasks: [], acknowledgment: "", needs_human_support: false, support_message: "" }));
   };
 
@@ -428,7 +523,7 @@ const GrowingTreeGame = ({ onExit }) => {
 
       {/* Floating Back */}
       <button
-        onClick={onExit}
+        onClick={() => { playWoodClickSound(); onExit(); }}
         className="absolute top-5 left-5 z-20 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/30 backdrop-blur-md border border-white/10 text-white/60 hover:text-white hover:bg-black/50 transition-all duration-200 group text-sm font-medium"
       >
         <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
