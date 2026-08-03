@@ -18,19 +18,44 @@ class ReframeEvaluation(BaseModel):
         description="One short, in-character reaction line from the thought monster expressing its resistance or acceptance of the reframe."
     )
 
+def call_groq_api(prompt: str, json_schema: dict = None) -> str:
+    """
+    Calls the Groq Cloud API (llama-3.3-70b-versatile) using standard HTTP urllib.
+    Falls back gracefully if GROQ_API_KEY is missing or invalid.
+    """
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if not groq_key:
+        raise ValueError("GROQ_API_KEY not configured in environment")
+
+    import urllib.request
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7
+    }
+    if json_schema:
+        payload["response_format"] = {"type": "json_object"}
+
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={
+        "Authorization": f"Bearer {groq_key}",
+        "Content-Type": "application/json"
+    })
+
+    with urllib.request.urlopen(req, timeout=10) as response:
+        res_json = json.loads(response.read().decode("utf-8"))
+        return res_json["choices"][0]["message"]["content"]
+
 def evaluate_reframe(distortion_type: str, monster_statement: str, player_reframe: str) -> dict:
     """
-    Calls the Gemini API using google-genai to evaluate the player's reframe of a cognitive distortion.
-    If the API call fails or the API key is invalid/missing, fails gracefully with a fallback response.
+    Evaluates the player's reframe of a cognitive distortion.
+    Tries Gemini API first. If Gemini fails or quota is exhausted, falls back to Groq API using GROQ_API_KEY.
     """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return get_fallback_evaluation(player_reframe)
-
-    try:
-        client = genai.Client(api_key=api_key)
-
-        prompt = f"""
+    prompt = f"""
 You are an expert cognitive behavioral therapist (CBT) judging a player's response in a thought reframing game.
 The player is fighting a "Thought Monster" that has spoken a cognitive distortion.
 The player must reply with a reframe that directly addresses and dismantles that specific cognitive distortion.
@@ -40,56 +65,48 @@ Cognitive Distortion being addressed:
 - Monster Statement: "{monster_statement}"
 - Player Reframe: "{player_reframe}"
 
-Your task:
-1. Determine if the player's reframe genuinely addresses the specific cognitive distortion '{distortion_type}'.
-   Note: It must address this specific distortion, not just be generic positivity or empty motivation (e.g. "I'm awesome", "things will be fine" should score low, whereas reframing the thoughts with evidence or realistic perspectives should score high).
-2. Assign a quality score between 0 and 100.
-3. Provide one short, encouraging, and specific feedback sentence.
-4. Provide one short, in-character reaction line from the Thought Monster (e.g., expressing frustration at being dismantled, or showing a crack in its armor, or retreating).
-
-Ensure your response conforms strictly to the requested schema.
+Respond strictly in valid JSON with this exact structure:
+{{
+  "addresses_distortion": true or false,
+  "quality_score": number between 0 and 100,
+  "feedback": "one short, encouraging, and specific sentence",
+  "monster_response": "one short in-character reaction line from the thought monster"
+}}
 """
-
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=ReframeEvaluation,
-                temperature=0.0,
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=ReframeEvaluation,
+                    temperature=0.0,
+                )
             )
-        )
+            return json.loads(response.text)
+        except Exception as e:
+            print(f"[Gemini API Failure] Trying GROQ_API_KEY fallback... Error: {e}")
 
-        return json.loads(response.text)
+    # Fallback to Groq API
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        try:
+            print("[Groq API] Calling Groq API via GROQ_API_KEY...")
+            raw_res = call_groq_api(prompt, json_schema=True)
+            return json.loads(raw_res)
+        except Exception as groq_err:
+            print(f"[Groq API Exception] Error: {groq_err}")
 
-    except Exception as e:
-        print(f"[Gemini API Exception] Falling back to mock evaluation. Error: {e}")
-        return get_fallback_evaluation(player_reframe)
-
-def get_fallback_evaluation(player_reframe: str) -> dict:
-    """Generates a fallback evaluation response when Gemini API is offline/invalid."""
-    words = len(player_reframe.split())
-    score = min(95, max(40, words * 6))
-    
-    return {
-        "addresses_distortion": True,
-        "quality_score": score,
-        "feedback": "CBT Fallback: You are practicing valuable reframing skills by identifying realistic alternatives to negative thoughts.",
-        "monster_response": "Your logical reasoning is making my grip fade..."
-    }
+    return get_fallback_evaluation(player_reframe)
 
 def generate_receptionist_response(player_statement: str) -> str:
     """
-    Generates a warm, in-character response from Mira the receptionist using Gemini API.
+    Generates a warm, in-character response from Mira the receptionist using Gemini or Groq API.
     """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        return "I understand. Take your time to look around, or step into one of the reflection rooms on the left to start reframing."
-
-    try:
-        client = genai.Client(api_key=api_key)
-
-        prompt = f"""
+    prompt = f"""
 You are Mira, the warm and welcoming receptionist of the Reframe Castle.
 The player is a seeker exploring the castle or dealing with difficult emotions.
 They have just typed: "{player_statement}"
@@ -99,17 +116,28 @@ Respond to them in character as Mira:
 - Do not be clinical, diagnostic, or preachy.
 - Direct them gently to explore the lobby, meet the monk in the temple, or enter one of the reflection suites on the left to begin reframing their thoughts.
 """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            return response.text.strip()
+        except Exception as e:
+            print(f"[Gemini API Failure in Mira Response] Trying GROQ_API_KEY... Error: {e}")
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
+    # Fallback to Groq API
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        try:
+            print("[Groq API] Generating Mira response via GROQ_API_KEY...")
+            return call_groq_api(prompt).strip()
+        except Exception as groq_err:
+            print(f"[Groq API Exception in Mira Response] Error: {groq_err}")
 
-        return response.text.strip()
-
-    except Exception as e:
-        print(f"[Gemini API Exception in Mira Response] Error: {e}")
-        return "I understand. Take your time to look around, or step into one of the reflection rooms on the left to start reframing."
+    return "I understand. Take your time to look around, or step into one of the reflection rooms on the left to start reframing."
 
 class ScenarioOption(BaseModel):
     text: str = Field(description="The response option text.")
@@ -125,120 +153,251 @@ class BattleScenario(BaseModel):
 
 def generate_battle_scenario(level: int) -> dict:
     """
-    Generates a dynamic, level-appropriate CBT battle scenario using Gemini.
-    Difficulty level increases with player level:
-    - Level 1-2: Easy (Self-Doubt Slime or Anxiety Ghost)
-    - Level 3-4: Medium (Anxiety Ghost or Hopelessness Troll)
-    - Level 5+: Hard (Hopelessness Troll or Doomsday Dragon)
+    Generates a dynamic, level-appropriate CBT battle scenario using Gemini API, falling back to Groq API if Gemini fails.
     """
     import random
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        sc = get_fallback_scenario(level)
-        sc["isFallback"] = True
-        sc["aiNotice"] = "Gemini API Key is missing. Playing offline scenario."
-        return sc
+    if level <= 2:
+        difficulty = "easy"
+        allowed_monsters = ["self-doubt-slime", "anxiety-ghost"]
+    elif level <= 4:
+        difficulty = "medium"
+        allowed_monsters = ["anxiety-ghost", "hopelessness-troll"]
+    else:
+        difficulty = "hard"
+        allowed_monsters = ["hopelessness-troll", "doomsday-dragon"]
 
-    try:
-        # Determine difficulty and allowed monsters based on level
-        if level <= 2:
-            difficulty = "easy"
-            allowed_monsters = ["self-doubt-slime", "anxiety-ghost"]
-        elif level <= 4:
-            difficulty = "medium"
-            allowed_monsters = ["anxiety-ghost", "hopelessness-troll"]
-        else:
-            difficulty = "hard"
-            allowed_monsters = ["hopelessness-troll", "doomsday-dragon"]
+    chosen_monster = random.choice(allowed_monsters)
+    topics = [
+        "academic failure", "social rejection", "public speaking anxiety", 
+        "job/interview stress", "loneliness", "imposter syndrome", 
+        "relationship conflict", "health worry", "time management pressure",
+        "making a mistake in front of peers", "financial insecurity"
+    ]
+    chosen_topic = random.choice(topics)
 
-        chosen_monster = random.choice(allowed_monsters)
-        topics = [
-            "academic failure", "social rejection", "public speaking anxiety", 
-            "job/interview stress", "loneliness", "imposter syndrome", 
-            "relationship conflict", "health worry", "time management pressure",
-            "making a mistake in front of peers", "financial insecurity"
-        ]
-        chosen_topic = random.choice(topics)
-
-        client = genai.Client(api_key=api_key)
-
-        prompt = f"""
+    prompt = f"""
 You are an expert cognitive behavioral therapist (CBT) designing a Level {level} scenario for a thought reframing game.
 The player must defeat a "Thought Monster" representing a cognitive distortion.
 
-Generate a scenario with the following specifications:
+Generate a scenario with specifications:
 - Difficulty: {difficulty}
 - Selected Monster: {chosen_monster}
 - Chosen Focus Topic: {chosen_topic}
 
-The scenario MUST contain:
-1. A realistic, short, relatable situation specifically about the topic '{chosen_topic}'.
-2. A negative thought expressing a cognitive distortion that fits the monster '{chosen_monster}'.
-3. Exactly 4 options:
-   - Exactly ONE option must be a constructive, logical CBT cognitive reframe (marked as isCorrect: true, with encouraging feedback).
-   - The other THREE options must be unconstructive/distortion-reinforcing choices (marked as isCorrect: false, with supportive corrective feedback explaining the cognitive distortion trap).
-
-Ensure your response conforms strictly to the requested schema. Make the situation and options highly specific to the topic.
+Respond strictly in valid JSON matching this exact structure:
+{{
+  "situation": "short, relatable situation specifically about {chosen_topic}",
+  "negativeThought": "a negative distorted thought matching {chosen_monster}",
+  "options": [
+     {{"text": "constructive reframe", "isCorrect": true, "feedback": "encouraging feedback"}},
+     {{"text": "distortion choice 1", "isCorrect": false, "feedback": "corrective feedback"}},
+     {{"text": "distortion choice 2", "isCorrect": false, "feedback": "corrective feedback"}},
+     {{"text": "distortion choice 3", "isCorrect": false, "feedback": "corrective feedback"}}
+  ],
+  "enemy": "{chosen_monster}",
+  "difficulty": "{difficulty}"
+}}
 """
 
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=BattleScenario,
-                temperature=0.9,
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if api_key:
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=BattleScenario,
+                    temperature=0.9,
+                )
             )
-        )
+            res_data = json.loads(response.text)
+            res_data["isFallback"] = False
+            return res_data
+        except Exception as e:
+            print(f"[Gemini Scenario Exception] Trying GROQ_API_KEY fallback... Error: {e}")
 
-        res_data = json.loads(response.text)
-        res_data["isFallback"] = False
-        return res_data
+    # Fallback to Groq API
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        try:
+            print("[Groq API] Generating battle scenario via GROQ_API_KEY...")
+            raw_res = call_groq_api(prompt, json_schema=True)
+            res_data = json.loads(raw_res)
+            res_data["isFallback"] = False
+            return res_data
+        except Exception as groq_err:
+            print(f"[Groq Scenario Exception] Error: {groq_err}")
 
-    except Exception as e:
-        print(f"[Gemini Scenario Exception] Falling back to static scenario. Error: {e}")
-        sc = get_fallback_scenario(level)
-        sc["isFallback"] = True
-        sc["aiNotice"] = f"AI API Key error/quota exceeded: {str(e)[:80]}. Playing offline scenario."
-        return sc
+    # Local fallback
+    sc = get_fallback_scenario(level)
+    sc["isFallback"] = True
+    sc["aiNotice"] = "AI APIs offline or quota exceeded. Playing offline scenario."
+    return sc
 
 def get_fallback_scenario(level: int) -> dict:
-    if level <= 2:
-        return {
-            "situation": "My friend didn't reply to my message.",
+    import random
+    
+    level_1_scenarios = [
+        {
+            "situation": "My friend didn't reply to my message immediately.",
             "negativeThought": "They must hate me.",
             "options": [
-                {"text": "Maybe they are just busy.", "isCorrect": True, "feedback": "Excellent! Lack of reply doesn't automatically mean rejection."},
+                {"text": "Maybe they are just busy right now.", "isCorrect": True, "feedback": "Excellent! Lack of immediate reply doesn't mean rejection."},
                 {"text": "No one likes me.", "isCorrect": False, "feedback": "This is overgeneralization based on one event."},
                 {"text": "I should never text anyone.", "isCorrect": False, "feedback": "This promotes isolation and avoidance."},
                 {"text": "I always annoy people.", "isCorrect": False, "feedback": "This is negative labeling without evidence."}
             ],
             "enemy": "self-doubt-slime",
             "difficulty": "easy"
-        }
-    elif level <= 4:
-        return {
-            "situation": "I got critical feedback from my boss.",
-            "negativeThought": "I'm going to get fired.",
+        },
+        {
+            "situation": "I didn't score as high as I wanted on a recent test.",
+            "negativeThought": "I am a complete failure and not smart enough.",
             "options": [
-                {"text": "Feedback helps me learn and improve.", "isCorrect": True, "feedback": "Perfect! Constructive feedback is a tool for growth."},
+                {"text": "One test score doesn't measure my intelligence; I can study differently next time.", "isCorrect": True, "feedback": "Great reframe! A single score is feedback, not your total worth."},
+                {"text": "I should just give up on this subject.", "isCorrect": False, "feedback": "This is defeatist thinking that stops you from improving."},
+                {"text": "I'm worse than everyone else.", "isCorrect": False, "feedback": "This is harsh self-comparison."},
+                {"text": "I will fail every exam in the future.", "isCorrect": False, "feedback": "This is catastrophizing and fortune-telling."}
+            ],
+            "enemy": "self-doubt-slime",
+            "difficulty": "easy"
+        },
+        {
+            "situation": "I stumbled over my words while introducing myself in a meeting.",
+            "negativeThought": "Everyone thinks I am completely incompetent.",
+            "options": [
+                {"text": "Nervous stumbles happen to everyone, people quickly move on.", "isCorrect": True, "feedback": "Spot on! People are far more understanding and forgiving than we think."},
+                {"text": "I ruined my entire reputation.", "isCorrect": False, "feedback": "This is blowing a minor glitch out of proportion."},
+                {"text": "I can never speak in public again.", "isCorrect": False, "feedback": "This promotes avoidance and fear."},
+                {"text": "Everyone was secretly laughing at me.", "isCorrect": False, "feedback": "This is mind-reading without evidence."}
+            ],
+            "enemy": "anxiety-ghost",
+            "difficulty": "easy"
+        },
+        {
+            "situation": "I spilled coffee on my table during work.",
+            "negativeThought": "I ruin everything I touch.",
+            "options": [
+                {"text": "Accidents happen to everyone; I can clean it up and keep going.", "isCorrect": True, "feedback": "Perfect! Spilling coffee is just an accident, not a character flaw."},
+                {"text": "I am the messiest person alive.", "isCorrect": False, "feedback": "This is negative labeling over a minor spill."},
+                {"text": "My whole day is ruined.", "isCorrect": False, "feedback": "This is catastrophizing a small issue."},
+                {"text": "I shouldn't even try working today.", "isCorrect": False, "feedback": "This is defeatist thinking."}
+            ],
+            "enemy": "self-doubt-slime",
+            "difficulty": "easy"
+        },
+        {
+            "situation": "I arrived 5 minutes late to a casual meetup.",
+            "negativeThought": "My friends will be furious and think I don't respect them.",
+            "options": [
+                {"text": "5 minutes is a small delay, I'll apologize politely and enjoy the meetup.", "isCorrect": True, "feedback": "Great reframe! A minor delay won't ruin a good friendship."},
+                {"text": "They won't want me there anymore.", "isCorrect": False, "feedback": "This is fortune-telling without proof."},
+                {"text": "I am completely unreliable.", "isCorrect": False, "feedback": "This is harsh all-or-nothing self-labeling."},
+                {"text": "I should turn around and go home.", "isCorrect": False, "feedback": "This is avoidance behavior."}
+            ],
+            "enemy": "anxiety-ghost",
+            "difficulty": "easy"
+        }
+    ]
+
+    level_2_scenarios = [
+        {
+            "situation": "I got critical feedback from my supervisor on my draft.",
+            "negativeThought": "I'm terrible at my job and will get fired.",
+            "options": [
+                {"text": "Feedback is an opportunity to learn and refine my work.", "isCorrect": True, "feedback": "Perfect! Constructive feedback is a tool for professional growth."},
                 {"text": "I can't do anything right.", "isCorrect": False, "feedback": "This is all-or-nothing thinking based on one review."},
-                {"text": "My boss hates me.", "isCorrect": False, "feedback": "This is mind-reading without objective evidence."},
+                {"text": "My supervisor personally dislikes me.", "isCorrect": False, "feedback": "This is mind-reading without objective evidence."},
                 {"text": "I should start looking for another job immediately.", "isCorrect": False, "feedback": "This is catastrophizing the situation."}
             ],
             "enemy": "anxiety-ghost",
             "difficulty": "medium"
+        },
+        {
+            "situation": "I wasn't invited to a weekend gathering with some colleagues.",
+            "negativeThought": "They intentionally excluded me because nobody likes me.",
+            "options": [
+                {"text": "Group plans happen for many casual reasons; it doesn't mean I am excluded from the group.", "isCorrect": True, "feedback": "Awesome! Avoiding personalizing every event keeps perspective healthy."},
+                {"text": "I will isolate myself from them from now on.", "isCorrect": False, "feedback": "This causes unnecessary distance and resentment."},
+                {"text": "I am completely unlikable.", "isCorrect": False, "feedback": "This is negative labeling."},
+                {"text": "They all talk bad about me behind my back.", "isCorrect": False, "feedback": "This is paranoid mind-reading."}
+            ],
+            "enemy": "self-doubt-slime",
+            "difficulty": "medium"
+        },
+        {
+            "situation": "I felt nervous while giving an answer in class/team meeting.",
+            "negativeThought": "My voice sounded shaky so everyone thinks I don't know anything.",
+            "options": [
+                {"text": "Feeling nervous is natural; the substance of my answer is what matters.", "isCorrect": True, "feedback": "Excellent! Shaky vocal tone does not diminish your knowledge."},
+                {"text": "I sounded like a complete fool.", "isCorrect": False, "feedback": "This is extreme self-judgment."},
+                {"text": "I will never speak up again.", "isCorrect": False, "feedback": "This is fear-driven avoidance."},
+                {"text": "Everyone noticed and was judging me.", "isCorrect": False, "feedback": "This is spotlight-effect mind reading."}
+            ],
+            "enemy": "anxiety-ghost",
+            "difficulty": "medium"
+        },
+        {
+            "situation": "My team project deadline is approaching fast.",
+            "negativeThought": "We will never finish in time and it will all be my fault.",
+            "options": [
+                {"text": "We can break the remaining work into clear tasks and communicate.", "isCorrect": True, "feedback": "Awesome! Focusing on actionable steps reduces overwhelm."},
+                {"text": "Everything is doomed.", "isCorrect": False, "feedback": "This is catastrophizing before the outcome."},
+                {"text": "I should take on all the work myself.", "isCorrect": False, "feedback": "This leads to burnout and ignores teamwork."},
+                {"text": "I am ruining the project for everyone.", "isCorrect": False, "feedback": "This is unnecessary personalization."}
+            ],
+            "enemy": "hopelessness-troll",
+            "difficulty": "medium"
         }
-    else:
-        return {
-            "situation": "A long-term project I worked on failed.",
+    ]
+
+    level_hard_scenarios = [
+        {
+            "situation": "A long-term project I worked hard on didn't succeed.",
             "negativeThought": "I'm completely incompetent and will never achieve anything.",
             "options": [
-                {"text": "This project failed, but I learned valuable lessons for the next one.", "isCorrect": True, "feedback": "Outstanding! Separating your self-worth from a single outcome is key to resilience."},
+                {"text": "This project failed, but I gained valuable experience and skills for the next attempt.", "isCorrect": True, "feedback": "Outstanding! Separating your self-worth from a single outcome is key to resilience."},
                 {"text": "I'm a failure.", "isCorrect": False, "feedback": "This is personalizing a complex project failure."},
                 {"text": "Everything I do is a waste of time.", "isCorrect": False, "feedback": "This is overgeneralizing from one failure."},
                 {"text": "I should give up my career goals.", "isCorrect": False, "feedback": "This is catastrophizing and fortune-telling."}
             ],
             "enemy": "doomsday-dragon",
             "difficulty": "hard"
+        },
+        {
+            "situation": "I've been feeling overwhelmed and emotionally exhausted for a few days.",
+            "negativeThought": "I will never feel normal again.",
+            "options": [
+                {"text": "Exhaustion passes when I take time to rest and care for myself.", "isCorrect": True, "feedback": "Compassionate reframe! Emotions and fatigue are temporary states."},
+                {"text": "I am broken beyond repair.", "isCorrect": False, "feedback": "This is permanent negative labeling."},
+                {"text": "There is no point in trying to rest.", "isCorrect": False, "feedback": "This is hopeless thinking."},
+                {"text": "I am too weak for real life.", "isCorrect": False, "feedback": "This is self-critical judgment."}
+            ],
+            "enemy": "hopelessness-troll",
+            "difficulty": "hard"
+        },
+        {
+            "situation": "I made a poor financial decision that lost me money.",
+            "negativeThought": "My life is ruined and I am completely irresponsible.",
+            "options": [
+                {"text": "It was a costly mistake, but I can make a plan to recover and make wiser choices.", "isCorrect": True, "feedback": "Empowering reframe! Mistakes can be rectified over time."},
+                {"text": "I will end up broke forever.", "isCorrect": False, "feedback": "This is catastrophizing into the distant future."},
+                {"text": "I am stupid for making that decision.", "isCorrect": False, "feedback": "This is self-degrading labeling."},
+                {"text": "There is no way to recover from this.", "isCorrect": False, "feedback": "This is learned helplessness."}
+            ],
+            "enemy": "doomsday-dragon",
+            "difficulty": "hard"
         }
+    ]
+
+    # Select pool by level
+    if level <= 2:
+        pool = level_1_scenarios
+    elif level <= 4:
+        pool = level_2_scenarios
+    else:
+        pool = level_hard_scenarios
+
+    return random.choice(pool)

@@ -1404,6 +1404,22 @@ const LeaderboardSection = () => {
       </div>
 
 
+      {/* Global Leaderboard Table */}
+      <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-amber-500/5 to-orange-500/5 pointer-events-none" />
+        <div className="flex items-center justify-between mb-6 relative z-10">
+          <div className="flex items-center gap-3">
+            <Trophy size={32} className="text-yellow-400" />
+            <div>
+              <h3 className="font-poppins font-semibold text-2xl text-white">Global Player Leaderboard</h3>
+              <p className="text-gray-300">Top Mind Warriors ranked by Level, XP & Total Victories</p>
+            </div>
+          </div>
+        </div>
+
+        <LeaderboardTable />
+      </div>
+
       {/* Motivational Message */}
       <div className="bg-gradient-to-r from-pink-600/20 to-purple-600/20 border border-pink-500/30 rounded-2xl p-6 text-center">
         <h3 className="text-white font-bold text-xl mb-2">
@@ -1420,6 +1436,101 @@ const LeaderboardSection = () => {
         </p>
       </div>
 
+    </div>
+  );
+};
+
+// Global Leaderboard Table Component
+const LeaderboardTable = () => {
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/game/leaderboard')
+      .then(res => res.json())
+      .then(data => {
+        setLeaderboard(data?.leaderboard || []);
+      })
+      .catch(err => console.error("Leaderboard fetch error:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="text-gray-400 py-6 text-center">Loading global rankings...</div>;
+  }
+
+  if (leaderboard.length === 0) {
+    return <div className="text-gray-400 py-6 text-center">No scores recorded yet. Be the first to play!</div>;
+  }
+
+  return (
+    <div className="overflow-x-auto relative z-10">
+      <table className="w-full text-left text-white border-collapse">
+        <thead>
+          <tr className="border-b border-white/10 text-gray-400 text-xs font-bold uppercase tracking-wider">
+            <th className="py-3 px-4">Rank</th>
+            <th className="py-3 px-4">Player</th>
+            <th className="py-3 px-4 text-center">Level</th>
+            <th className="py-3 px-4 text-center">Total XP</th>
+            <th className="py-3 px-4 text-center">Wins</th>
+            <th className="py-3 px-4 text-center">Thought Battle Stats</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {leaderboard.map((entry, index) => {
+            const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+            const tb = entry.thoughtbattle || {};
+
+            return (
+              <tr key={entry.user_id || index} className="hover:bg-white/5 transition">
+                <td className="py-4 px-4 font-black text-xl">
+                  {rankEmoji}
+                </td>
+                <td className="py-4 px-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white shadow">
+                      {entry.name ? entry.name.charAt(0).toUpperCase() : 'P'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-white text-base">{entry.name || 'Anonymous Warrior'}</p>
+                      {entry.badges && entry.badges.length > 0 && (
+                        <div className="flex gap-1 mt-1">
+                          {entry.badges.slice(0, 3).map((b, i) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                              {b}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-center">
+                  <span className="px-3 py-1 bg-yellow-400/20 text-yellow-300 font-extrabold rounded-full text-sm border border-yellow-400/30">
+                    Lvl {entry.level || 1}
+                  </span>
+                </td>
+                <td className="py-4 px-4 text-center font-bold text-amber-300">
+                  {entry.xp || 0} XP
+                </td>
+                <td className="py-4 px-4 text-center font-bold text-green-400">
+                  {entry.total_score || 0}
+                </td>
+                <td className="py-4 px-4 text-center">
+                  <div className="inline-flex items-center gap-3 px-3 py-1 bg-black/40 rounded-xl border border-white/10 text-xs">
+                    <span className="text-purple-300 font-semibold">Lvl {tb.level || 1}</span>
+                    <span className="text-yellow-400 font-semibold">{tb.xp || 0} XP</span>
+                    <span className="text-green-400 font-semibold">{tb.victories || 0} Wins</span>
+                    {tb.current_streak > 0 && (
+                      <span className="text-orange-400 font-bold">🔥 {tb.current_streak}</span>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 };
