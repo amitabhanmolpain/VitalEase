@@ -1072,7 +1072,9 @@ const ReframeGame = ({ onExit }) => {
     triggerPlayerSpeech(choiceText, async () => {
       let reply = "";
       const lower = choiceText.toLowerCase();
-      if (lower.includes("ptsd")) {
+      if (lower.includes("emotional")) {
+        reply = "Go to the room 103";
+      } else if (lower.includes("ptsd")) {
         reply = "Please meet the monk in the temple he has the solution of your problem";
       } else if (lower.includes("really")) {
         reply = "I am Mira. I welcome seekers to the Reframe Castle.";
@@ -2482,6 +2484,15 @@ const ReframeGame = ({ onExit }) => {
                 className="px-3 py-1.5 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
               >
                 4. I'm suffering from PTSD
+              </button>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleReceptionistChoice("I'm suffering from emotional disorder");
+                }}
+                className="px-3 py-1.5 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                5. I'm suffering from emotional disorder
               </button>
             </div>
 
