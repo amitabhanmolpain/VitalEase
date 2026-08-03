@@ -347,6 +347,35 @@ const ReframeGame = ({ onExit }) => {
   const palaceRadioPlayerRef = useRef(null);
   const palaceRadioContainerRef = useRef(null);
 
+  // Draggable & Resizable state for Magical Radio popup
+  const [radioPos, setRadioPos] = useState({ x: 0, y: 0 });
+  const [radioScale, setRadioScale] = useState(1.0);
+  const isDraggingRadio = useRef(false);
+  const dragStartRadio = useRef({ x: 0, y: 0 });
+
+  const handleRadioMouseDown = (e) => {
+    if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+    isDraggingRadio.current = true;
+    dragStartRadio.current = { x: e.clientX - radioPos.x, y: e.clientY - radioPos.y };
+
+    const handleMouseMove = (moveEvent) => {
+      if (!isDraggingRadio.current) return;
+      setRadioPos({
+        x: moveEvent.clientX - dragStartRadio.current.x,
+        y: moveEvent.clientY - dragStartRadio.current.y
+      });
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRadio.current = false;
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+  };
+
   // 4 Radio Channels with YouTube video IDs and metadata
   const RADIO_CHANNELS = [
     { label: "🎻 Kal Ho Naa Ho",      videoId: "lxG7-7SK7og", desc: "Soulful Bollywood classic",         color: "#d97706" },
@@ -1043,7 +1072,9 @@ const ReframeGame = ({ onExit }) => {
     triggerPlayerSpeech(choiceText, async () => {
       let reply = "";
       const lower = choiceText.toLowerCase();
-      if (lower.includes("ptsd")) {
+      if (lower.includes("emotional")) {
+        reply = "Go to the room 103";
+      } else if (lower.includes("ptsd")) {
         reply = "Please meet the monk in the temple he has the solution of your problem";
       } else if (lower.includes("really")) {
         reply = "I am Mira. I welcome seekers to the Reframe Castle.";
@@ -2454,6 +2485,15 @@ const ReframeGame = ({ onExit }) => {
               >
                 4. I'm suffering from PTSD
               </button>
+              <button 
+                onClick={() => {
+                  playRetroClickSound();
+                  handleReceptionistChoice("I'm suffering from emotional disorder");
+                }}
+                className="px-3 py-1.5 bg-[#2e1a47] border-2 border-amber-500 hover:bg-[#3f2560] text-xs font-bold font-pixel-body text-amber-200 rounded-none transition"
+              >
+                5. I'm suffering from emotional disorder
+              </button>
             </div>
 
             {/* Chat message submission input field */}
@@ -2636,37 +2676,69 @@ const ReframeGame = ({ onExit }) => {
 
         {/* Magical Radio Dialogue Box (Palace Suite) — 4 real channels */}
         {currentRoom === 'left_wing_floor_2' && radioDialogueOpen && (
-          <div className="absolute bottom-6 right-6 w-full max-w-lg bg-[#0a1a26] border-4 border-teal-400 text-teal-100 p-4 font-mono shadow-2xl z-30 flex flex-col gap-3">
+          <div 
+            style={{ 
+              transform: `translate(calc(-50% + ${radioPos.x}px), ${radioPos.y}px) scale(${radioScale})`,
+              transformOrigin: 'center center' 
+            }}
+            className="absolute bottom-6 left-1/2 w-[90%] max-w-md bg-[#161208]/95 border-4 border-yellow-400 text-yellow-100 p-3.5 font-mono shadow-[0_0_35px_rgba(251,191,36,0.35)] z-30 flex flex-col gap-2.5 rounded-none backdrop-blur-md transition-transform duration-75 select-none"
+          >
             
             {/* Hidden YouTube player container */}
             <div ref={palaceRadioContainerRef} style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
 
-            {/* Header */}
-            <div className="flex justify-between items-start border-b-2 border-teal-400/30 pb-2">
+            {/* Draggable Header */}
+            <div 
+              onMouseDown={handleRadioMouseDown}
+              className="flex justify-between items-center border-b-2 border-yellow-500/40 pb-2 cursor-grab active:cursor-grabbing bg-amber-950/30 -mx-3.5 -mt-3.5 p-3 rounded-t-none"
+              title="Click and drag to move this popup"
+            >
               <div className="flex items-center gap-2">
-                <span className="text-2xl" style={{ animation: activeChannel !== null ? 'spin 2s linear infinite' : 'bounce 1s infinite' }}>📻</span>
+                <div className="w-8 h-8 rounded-md bg-yellow-500/20 border border-yellow-400/60 flex items-center justify-center text-lg shadow-inner">
+                  <span style={{ animation: activeChannel !== null ? 'spin 3s linear infinite' : 'bounce 1.5s infinite' }}>📻</span>
+                </div>
                 <div>
-                  <h4 className="font-bold text-base font-pixel-body text-teal-300">Magical Radio</h4>
-                  <span className="text-[9px] text-teal-300/60 font-pixel-body">your palace companion ✦</span>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-sm font-pixel-body text-yellow-300 tracking-wide drop-shadow">Magical Radio</h4>
+                    <span className="text-[9px] bg-yellow-400/20 text-yellow-300 border border-yellow-400/40 px-1 py-0.2 rounded font-mono">⠿ Drag me</span>
+                  </div>
+                  <span className="text-[9px] text-amber-400/80 font-pixel-body block">your palace companion ✦</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Controls: Size reduction, Mute/Replay, Close */}
+              <div className="flex items-center gap-1.5">
+                {/* Size toggle button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    playRetroClickSound();
+                    setRadioScale(prev => prev === 1.0 ? 0.8 : prev === 0.8 ? 0.65 : 1.0);
+                  }}
+                  className="px-2 py-0.5 bg-amber-900/80 border border-yellow-400 hover:bg-yellow-500 hover:text-black text-yellow-200 font-pixel-body text-[10px] transition shadow-sm font-bold"
+                  title="Reduce / toggle size (100% -> 80% -> 65%)"
+                >
+                  {radioScale === 1.0 ? '🔍 100%' : radioScale === 0.8 ? '🔎 80%' : '🔍 65%'}
+                </button>
+
                 <button 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     playRetroClickSound();
                     triggerRadioSpeech(radioSubtitle || "I'm here to make you feel relaxed! Click on the radio you want to listen to.");
                   }}
-                  className="px-2 py-1 bg-[#0a2e38] border-2 border-teal-400 hover:bg-[#0e3d4d] text-teal-200 transition rounded-none font-bold text-sm"
+                  className="px-2 py-0.5 bg-amber-950/80 border border-yellow-400 hover:bg-yellow-500 hover:text-black text-yellow-200 transition font-bold text-xs shadow-sm"
                   title="Replay greeting"
                 >
                   🔊
                 </button>
                 <button 
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     playRetroClickSound();
                     setRadioDialogueOpen(false);
                   }}
-                  className="px-3 py-1 bg-slate-950 text-white border-2 border-teal-400 font-pixel-body text-[10px] hover:bg-slate-800 transition rounded-none"
+                  className="px-2.5 py-0.5 bg-yellow-500 text-black border border-yellow-300 font-pixel-body text-[10px] font-bold hover:bg-yellow-400 transition shadow-sm"
                 >
                   Esc - leave
                 </button>
@@ -2674,19 +2746,19 @@ const ReframeGame = ({ onExit }) => {
             </div>
 
             {/* Radio speech / subtitle */}
-            <div className="py-0.5">
-              <p className="text-xs font-semibold leading-relaxed font-pixel-body text-teal-100 italic">
+            <div className="bg-amber-950/40 border border-yellow-500/30 p-2 rounded-none text-center">
+              <p className="text-xs font-semibold leading-relaxed font-pixel-body text-yellow-100 italic">
                 ♪ "{radioSubtitle || "I'm here to make you feel relaxed! Click on the radio you want to listen to."}" ♪
               </p>
               {radioSpeaking && (
-                <span className="text-[9px] text-yellow-400 font-bold uppercase tracking-wider animate-pulse mt-1 block font-pixel-body">
+                <span className="text-[9px] text-yellow-300 font-bold uppercase tracking-wider animate-pulse mt-0.5 block font-pixel-body">
                   ▶ speaking...
                 </span>
               )}
             </div>
 
             {/* 4 Channel Cards */}
-            <div className="grid grid-cols-2 gap-2 pt-1 border-t-2 border-teal-400/20">
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t-2 border-yellow-500/20">
               {RADIO_CHANNELS.map((ch, i) => {
                 const isActive = activeChannel === i;
                 return (
@@ -2709,25 +2781,30 @@ const ReframeGame = ({ onExit }) => {
                         triggerRadioSpeech(replies[i]);
                       }
                     }}
-                    style={{ borderColor: isActive ? ch.color : 'rgba(45,212,191,0.4)', backgroundColor: isActive ? ch.color + '33' : '#0a2030' }}
-                    className={`relative flex flex-col items-start gap-1 px-3 py-2.5 border-2 text-left transition-all duration-200 rounded-none hover:brightness-125 ${isActive ? 'ring-2 ring-yellow-400/60' : ''}`}
+                    style={{ 
+                      borderColor: isActive ? '#facc15' : 'rgba(234, 179, 8, 0.4)', 
+                      backgroundColor: isActive ? 'rgba(250, 204, 21, 0.18)' : 'rgba(30, 24, 13, 0.85)' 
+                    }}
+                    className={`relative flex flex-col items-start gap-1 px-2.5 py-1.5 border-2 text-left transition-all duration-200 rounded-none hover:border-yellow-400 hover:bg-amber-900/40 ${
+                      isActive ? 'ring-2 ring-yellow-400/80 shadow-[0_0_12px_rgba(250,204,21,0.25)]' : ''
+                    }`}
                   >
-                    <span className="text-xs font-bold font-pixel-body" style={{ color: isActive ? '#fef08a' : '#5eead4' }}>
+                    <span className="text-[11px] font-bold font-pixel-body" style={{ color: isActive ? '#fef08a' : '#fde047' }}>
                       {ch.label}
                     </span>
-                    <span className="text-[9px] font-pixel-body" style={{ color: isActive ? '#fde68a' : '#94a3b8' }}>
+                    <span className="text-[8.5px] font-pixel-body leading-tight" style={{ color: isActive ? '#fef3c7' : '#d97706' }}>
                       {ch.desc}
                     </span>
                     {isActive && (
-                      <span className="absolute top-1 right-2 text-[8px] text-yellow-300 font-bold font-pixel-body animate-pulse">
-                        ♫ NOW PLAYING
+                      <span className="absolute top-1 right-1.5 text-[8px] text-yellow-300 font-bold font-pixel-body animate-pulse">
+                        ♫ PLAYING
                       </span>
                     )}
                     {isActive && (
-                      <div className="flex gap-0.5 mt-1">
+                      <div className="flex gap-0.5 mt-0.5">
                         {[1,2,3,4,5].map(b => (
                           <div key={b} className="w-0.5 rounded-sm animate-pulse"
-                            style={{ height: `${6 + Math.random() * 8}px`, backgroundColor: ch.color, animationDelay: `${b * 0.1}s` }} />
+                            style={{ height: `${5 + Math.random() * 7}px`, backgroundColor: '#facc15', animationDelay: `${b * 0.1}s` }} />
                         ))}
                       </div>
                     )}
@@ -2744,7 +2821,7 @@ const ReframeGame = ({ onExit }) => {
                   setActiveChannel(null);
                   triggerRadioSpeech("Music stopped. Take your time to rest. I'm always here when you need me! 🌙");
                 }}
-                className="w-full py-1.5 bg-rose-900/40 border-2 border-rose-400 text-rose-200 font-pixel-body text-[10px] hover:bg-rose-900/70 transition rounded-none font-bold"
+                className="w-full py-1 bg-rose-950/80 border-2 border-yellow-500/80 text-yellow-200 font-pixel-body text-xs hover:bg-rose-900 transition rounded-none font-bold shadow-md"
               >
                 ⏹ STOP MUSIC
               </button>

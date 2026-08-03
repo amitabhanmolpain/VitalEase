@@ -654,34 +654,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
 
           {/* Game Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Clarity Strike Card */}
-            <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-purple-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
-              {/* Game Cover Image */}
-              <div className="w-full overflow-hidden">
-                <img
-                  src="/clarity strike image.png"
-                  alt="Clarity Strike"
-                  className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-
-              <div className="p-6">
-                <h3 className="font-poppins font-bold text-2xl text-white mb-1">Clarity Strike</h3>
-                <p className="text-purple-300 mb-3">Fight back against negative thoughts.</p>
-                <p className="text-gray-300 mb-6 leading-relaxed text-sm">
-                  Face a thought that's been weighing on you. Respond with something honest and balanced, and watch it lose its grip. No fixed answers — you write your own response, and it's judged on whether it actually helps.
-                </p>
-
-                <button
-                  onClick={() => navigate('/games/thought-battle')}
-                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl text-white font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
-                >
-                  <Swords size={24} />
-                  Start Game
-                </button>
-              </div>
-            </div>
-
             {/* Sanctuary Suites Card */}
             <div className="bg-gradient-to-br from-indigo-900/50 to-teal-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-teal-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
               {/* Game Cover Image */}
@@ -705,6 +677,34 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
                   className="w-full py-4 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-xl text-slate-950 font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
                 >
                   <Brain size={24} />
+                  Start Game
+                </button>
+              </div>
+            </div>
+
+            {/* Clarity Strike Card */}
+            <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-purple-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
+              {/* Game Cover Image */}
+              <div className="w-full overflow-hidden">
+                <img
+                  src="/clarity strike image.png"
+                  alt="Clarity Strike"
+                  className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                />
+              </div>
+
+              <div className="p-6">
+                <h3 className="font-poppins font-bold text-2xl text-white mb-1">Clarity Strike</h3>
+                <p className="text-purple-300 mb-3">Fight back against negative thoughts.</p>
+                <p className="text-gray-300 mb-6 leading-relaxed text-sm">
+                  Face a thought that's been weighing on you. Respond with something honest and balanced, and watch it lose its grip. No fixed answers — you write your own response, and it's judged on whether it actually helps.
+                </p>
+
+                <button
+                  onClick={() => navigate('/games/thought-battle')}
+                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl text-white font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <Swords size={24} />
                   Start Game
                 </button>
               </div>
@@ -1205,34 +1205,6 @@ const LeaderboardSection = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
-          {/* Thought Battle */}
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
-            <div>
-              <div className="relative w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10">
-                <img src="/clarity strike image.png" alt="Thought Battle" className="w-full h-full object-cover" />
-                <div className="absolute top-2 right-2 w-10 h-10 rounded-full bg-gradient-to-br from-red-500 via-orange-500 to-amber-600 border border-white/20 flex items-center justify-center shadow-lg">
-                  <span className="text-xl">⚔️</span>
-                </div>
-              </div>
-              <h4 className="text-white font-extrabold text-xl mb-1 text-center">Thought Battle</h4>
-              <p className="text-purple-300 text-xs font-semibold mb-4 text-center uppercase tracking-wider">Clarity Strike</p>
-            </div>
-            <div className="bg-black/30 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
-              <div>
-                <p className="text-gray-400 text-xs font-semibold">LEVEL</p>
-                <p className="text-white font-black text-xl">{games.thoughtbattle?.level || 1}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs font-semibold">XP</p>
-                <p className="text-yellow-400 font-black text-xl">{games.thoughtbattle?.xp || 0}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs font-semibold">WINS</p>
-                <p className="text-green-400 font-black text-xl">{games.thoughtbattle?.victories || 0}</p>
-              </div>
-            </div>
-          </div>
-
           {/* Sanctuary Suites */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
             <div>
@@ -1257,6 +1229,34 @@ const LeaderboardSection = () => {
               <div>
                 <p className="text-gray-400 text-xs font-semibold">WINS</p>
                 <p className="text-green-400 font-black text-xl">{games.reframe?.victories || 0}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Thought Battle */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
+            <div>
+              <div className="relative w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10">
+                <img src="/clarity strike image.png" alt="Thought Battle" className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 w-10 h-10 rounded-full bg-gradient-to-br from-red-500 via-orange-500 to-amber-600 border border-white/20 flex items-center justify-center shadow-lg">
+                  <span className="text-xl">⚔️</span>
+                </div>
+              </div>
+              <h4 className="text-white font-extrabold text-xl mb-1 text-center">Thought Battle</h4>
+              <p className="text-purple-300 text-xs font-semibold mb-4 text-center uppercase tracking-wider">Clarity Strike</p>
+            </div>
+            <div className="bg-black/30 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">LEVEL</p>
+                <p className="text-white font-black text-xl">{games.thoughtbattle?.level || 1}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">XP</p>
+                <p className="text-yellow-400 font-black text-xl">{games.thoughtbattle?.xp || 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">WINS</p>
+                <p className="text-green-400 font-black text-xl">{games.thoughtbattle?.victories || 0}</p>
               </div>
             </div>
           </div>
@@ -1404,6 +1404,22 @@ const LeaderboardSection = () => {
       </div>
 
 
+      {/* Global Leaderboard Table */}
+      <div className="bg-white/5 backdrop-blur-xl rounded-3xl p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-amber-500/5 to-orange-500/5 pointer-events-none" />
+        <div className="flex items-center justify-between mb-6 relative z-10">
+          <div className="flex items-center gap-3">
+            <Trophy size={32} className="text-yellow-400" />
+            <div>
+              <h3 className="font-poppins font-semibold text-2xl text-white">Global Player Leaderboard</h3>
+              <p className="text-gray-300">Top Mind Warriors ranked by Level, XP & Total Victories</p>
+            </div>
+          </div>
+        </div>
+
+        <LeaderboardTable />
+      </div>
+
       {/* Motivational Message */}
       <div className="bg-gradient-to-r from-pink-600/20 to-purple-600/20 border border-pink-500/30 rounded-2xl p-6 text-center">
         <h3 className="text-white font-bold text-xl mb-2">
@@ -1420,6 +1436,101 @@ const LeaderboardSection = () => {
         </p>
       </div>
 
+    </div>
+  );
+};
+
+// Global Leaderboard Table Component
+const LeaderboardTable = () => {
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/game/leaderboard')
+      .then(res => res.json())
+      .then(data => {
+        setLeaderboard(data?.leaderboard || []);
+      })
+      .catch(err => console.error("Leaderboard fetch error:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="text-gray-400 py-6 text-center">Loading global rankings...</div>;
+  }
+
+  if (leaderboard.length === 0) {
+    return <div className="text-gray-400 py-6 text-center">No scores recorded yet. Be the first to play!</div>;
+  }
+
+  return (
+    <div className="overflow-x-auto relative z-10">
+      <table className="w-full text-left text-white border-collapse">
+        <thead>
+          <tr className="border-b border-white/10 text-gray-400 text-xs font-bold uppercase tracking-wider">
+            <th className="py-3 px-4">Rank</th>
+            <th className="py-3 px-4">Player</th>
+            <th className="py-3 px-4 text-center">Level</th>
+            <th className="py-3 px-4 text-center">Total XP</th>
+            <th className="py-3 px-4 text-center">Wins</th>
+            <th className="py-3 px-4 text-center">Thought Battle Stats</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/5">
+          {leaderboard.map((entry, index) => {
+            const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+            const tb = entry.thoughtbattle || {};
+
+            return (
+              <tr key={entry.user_id || index} className="hover:bg-white/5 transition">
+                <td className="py-4 px-4 font-black text-xl">
+                  {rankEmoji}
+                </td>
+                <td className="py-4 px-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white shadow">
+                      {entry.name ? entry.name.charAt(0).toUpperCase() : 'P'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-white text-base">{entry.name || 'Anonymous Warrior'}</p>
+                      {entry.badges && entry.badges.length > 0 && (
+                        <div className="flex gap-1 mt-1">
+                          {entry.badges.slice(0, 3).map((b, i) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                              {b}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-center">
+                  <span className="px-3 py-1 bg-yellow-400/20 text-yellow-300 font-extrabold rounded-full text-sm border border-yellow-400/30">
+                    Lvl {entry.level || 1}
+                  </span>
+                </td>
+                <td className="py-4 px-4 text-center font-bold text-amber-300">
+                  {entry.xp || 0} XP
+                </td>
+                <td className="py-4 px-4 text-center font-bold text-green-400">
+                  {entry.total_score || 0}
+                </td>
+                <td className="py-4 px-4 text-center">
+                  <div className="inline-flex items-center gap-3 px-3 py-1 bg-black/40 rounded-xl border border-white/10 text-xs">
+                    <span className="text-purple-300 font-semibold">Lvl {tb.level || 1}</span>
+                    <span className="text-yellow-400 font-semibold">{tb.xp || 0} XP</span>
+                    <span className="text-green-400 font-semibold">{tb.victories || 0} Wins</span>
+                    {tb.current_streak > 0 && (
+                      <span className="text-orange-400 font-bold">🔥 {tb.current_streak}</span>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 };

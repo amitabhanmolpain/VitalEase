@@ -683,7 +683,13 @@ const useGameStore = create((set, get) => ({
       });
     } catch (error) {
       console.error("Failed to load dynamic scenario:", error);
-      set({ loading: false });
+      // Fallback to random offline scenario from local scenarios list
+      const localScenarios = get().scenarios;
+      const randomIdx = Math.floor(Math.random() * (localScenarios.length || 1));
+      set({
+        currentScenario: randomIdx,
+        loading: false
+      });
     }
   },
 
