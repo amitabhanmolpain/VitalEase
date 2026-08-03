@@ -654,34 +654,6 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
 
           {/* Game Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Clarity Strike Card */}
-            <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-purple-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
-              {/* Game Cover Image */}
-              <div className="w-full overflow-hidden">
-                <img
-                  src="/clarity strike image.png"
-                  alt="Clarity Strike"
-                  className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
-                />
-              </div>
-
-              <div className="p-6">
-                <h3 className="font-poppins font-bold text-2xl text-white mb-1">Clarity Strike</h3>
-                <p className="text-purple-300 mb-3">Fight back against negative thoughts.</p>
-                <p className="text-gray-300 mb-6 leading-relaxed text-sm">
-                  Face a thought that's been weighing on you. Respond with something honest and balanced, and watch it lose its grip. No fixed answers — you write your own response, and it's judged on whether it actually helps.
-                </p>
-
-                <button
-                  onClick={() => navigate('/games/thought-battle')}
-                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl text-white font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
-                >
-                  <Swords size={24} />
-                  Start Game
-                </button>
-              </div>
-            </div>
-
             {/* Sanctuary Suites Card */}
             <div className="bg-gradient-to-br from-indigo-900/50 to-teal-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-teal-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
               {/* Game Cover Image */}
@@ -705,6 +677,34 @@ const MentalHealthSection = ({ showGame, setShowGame, defaultTab = "assessment" 
                   className="w-full py-4 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-xl text-slate-950 font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
                 >
                   <Brain size={24} />
+                  Start Game
+                </button>
+              </div>
+            </div>
+
+            {/* Clarity Strike Card */}
+            <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-2xl overflow-hidden backdrop-blur-sm border border-purple-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 group hover:scale-[1.02]">
+              {/* Game Cover Image */}
+              <div className="w-full overflow-hidden">
+                <img
+                  src="/clarity strike image.png"
+                  alt="Clarity Strike"
+                  className="w-full object-contain group-hover:scale-105 transition-transform duration-500"
+                />
+              </div>
+
+              <div className="p-6">
+                <h3 className="font-poppins font-bold text-2xl text-white mb-1">Clarity Strike</h3>
+                <p className="text-purple-300 mb-3">Fight back against negative thoughts.</p>
+                <p className="text-gray-300 mb-6 leading-relaxed text-sm">
+                  Face a thought that's been weighing on you. Respond with something honest and balanced, and watch it lose its grip. No fixed answers — you write your own response, and it's judged on whether it actually helps.
+                </p>
+
+                <button
+                  onClick={() => navigate('/games/thought-battle')}
+                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl text-white font-bold text-lg hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                >
+                  <Swords size={24} />
                   Start Game
                 </button>
               </div>
@@ -1205,34 +1205,6 @@ const LeaderboardSection = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
-          {/* Thought Battle */}
-          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
-            <div>
-              <div className="relative w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10">
-                <img src="/clarity strike image.png" alt="Thought Battle" className="w-full h-full object-cover" />
-                <div className="absolute top-2 right-2 w-10 h-10 rounded-full bg-gradient-to-br from-red-500 via-orange-500 to-amber-600 border border-white/20 flex items-center justify-center shadow-lg">
-                  <span className="text-xl">⚔️</span>
-                </div>
-              </div>
-              <h4 className="text-white font-extrabold text-xl mb-1 text-center">Thought Battle</h4>
-              <p className="text-purple-300 text-xs font-semibold mb-4 text-center uppercase tracking-wider">Clarity Strike</p>
-            </div>
-            <div className="bg-black/30 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
-              <div>
-                <p className="text-gray-400 text-xs font-semibold">LEVEL</p>
-                <p className="text-white font-black text-xl">{games.thoughtbattle?.level || 1}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs font-semibold">XP</p>
-                <p className="text-yellow-400 font-black text-xl">{games.thoughtbattle?.xp || 0}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs font-semibold">WINS</p>
-                <p className="text-green-400 font-black text-xl">{games.thoughtbattle?.victories || 0}</p>
-              </div>
-            </div>
-          </div>
-
           {/* Sanctuary Suites */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
             <div>
@@ -1257,6 +1229,34 @@ const LeaderboardSection = () => {
               <div>
                 <p className="text-gray-400 text-xs font-semibold">WINS</p>
                 <p className="text-green-400 font-black text-xl">{games.reframe?.victories || 0}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Thought Battle */}
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition duration-300 shadow-xl flex flex-col justify-between">
+            <div>
+              <div className="relative w-full h-32 rounded-xl overflow-hidden mb-4 border border-white/10">
+                <img src="/clarity strike image.png" alt="Thought Battle" className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 w-10 h-10 rounded-full bg-gradient-to-br from-red-500 via-orange-500 to-amber-600 border border-white/20 flex items-center justify-center shadow-lg">
+                  <span className="text-xl">⚔️</span>
+                </div>
+              </div>
+              <h4 className="text-white font-extrabold text-xl mb-1 text-center">Thought Battle</h4>
+              <p className="text-purple-300 text-xs font-semibold mb-4 text-center uppercase tracking-wider">Clarity Strike</p>
+            </div>
+            <div className="bg-black/30 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">LEVEL</p>
+                <p className="text-white font-black text-xl">{games.thoughtbattle?.level || 1}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">XP</p>
+                <p className="text-yellow-400 font-black text-xl">{games.thoughtbattle?.xp || 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs font-semibold">WINS</p>
+                <p className="text-green-400 font-black text-xl">{games.thoughtbattle?.victories || 0}</p>
               </div>
             </div>
           </div>
