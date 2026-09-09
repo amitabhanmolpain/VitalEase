@@ -32,7 +32,7 @@ class GroundedAffirmationResponse(BaseModel):
 
 def call_groq_api(prompt: str, json_schema: dict = None) -> str:
     """
-    Calls the Groq Cloud API (llama-3.3-70b-versatile) using standard HTTP urllib.
+    Calls the Groq Cloud API (openai/gpt-oss-20b) using standard HTTP urllib.
     Falls back gracefully if GROQ_API_KEY is missing or invalid.
     """
     groq_key = os.environ.get("GROQ_API_KEY")
@@ -43,7 +43,7 @@ def call_groq_api(prompt: str, json_schema: dict = None) -> str:
     url = "https://api.groq.com/openai/v1/chat/completions"
     
     payload = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-20b",
         "messages": [
             {"role": "user", "content": prompt}
         ],
@@ -65,7 +65,7 @@ def call_groq_api(prompt: str, json_schema: dict = None) -> str:
 
 def generate_affirmation(player_statement: str) -> dict:
     """
-    Evaluates player statement and produces grounded validation/comfort response using Groq API (llama-3.3-70b-versatile).
+    Evaluates player statement and produces grounded validation/comfort response using Groq API (openai/gpt-oss-20b).
     Falls back to Gemini API or local rules if unavailable.
     """
     prompt = f"""

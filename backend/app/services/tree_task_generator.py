@@ -27,7 +27,7 @@ def call_groq_api(prompt: str, json_schema: bool = True) -> str:
     url = "https://api.groq.com/openai/v1/chat/completions"
     
     payload = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-20b",
         "messages": [
             {"role": "user", "content": prompt}
         ],
@@ -51,7 +51,7 @@ def generate_task_list(player_statement: str, previous_task_context: str = "", m
     """
     Evaluates player statement for safety first.
     If self-harm/suicidal/abuse triggers are hit, returns crisis response.
-    Otherwise, uses Groq API (llama-3.3-70b-versatile) to generate personalized tasks.
+    Otherwise, uses Groq API (openai/gpt-oss-20b) to generate personalized tasks.
     """
     player_statement_lower = player_statement.lower()
     
